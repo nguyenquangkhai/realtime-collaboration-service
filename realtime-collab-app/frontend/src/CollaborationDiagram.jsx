@@ -7,7 +7,8 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import * as Y from 'yjs';
 import TenantHeader from './components/TenantHeader';
-// import { Awareness, /* encodeAwarenessUpdate, */ applyAwarenessUpdate } from 'y-protocols/awareness.js';
+import TestInstructions from './components/TestInstructions';
+import { Awareness, encodeAwarenessUpdate, applyAwarenessUpdate } from 'y-protocols/awareness.js';
 // import { Buffer } from 'buffer'; // Removed - using Uint8Array instead
 // import { WebsocketProvider } from 'y-websocket'; // Removed
 
@@ -58,8 +59,7 @@ const CollaborationDiagram = () => {
   console.log('📡 WebSocket URL:', WEBSOCKET_URL);
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
-  // const [awareness, setAwareness] = useState(null); // Direct ref now
-  const [connectedUsers] = useState([]); // setConnectedUsers temporarily unused with awareness disabled
+  const [connectedUsers, setConnectedUsers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionInitialized, setConnectionInitialized] = useState(false);
@@ -67,13 +67,11 @@ const CollaborationDiagram = () => {
   const ydocRef = useRef(null);
   const yNodesRef = useRef(null);
   const yEdgesRef = useRef(null);
-  const awarenessRef = useRef(null); // Using a ref for awareness instance
-  const wsRef = useRef(null); // WebSocket connection ref
+  const awarenessRef = useRef(null);
+  const wsRef = useRef(null);
 
   // Light throttling to prevent feedback loops
   const positionUpdateTimeouts = useRef(new Map());
-
-  // Removed complex state management - keeping it simple
 
   const sendToServer = (messageType, data) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -109,9 +107,9 @@ const CollaborationDiagram = () => {
     yNodesRef.current = doc.getMap('nodes');
     yEdgesRef.current = doc.getArray('edges');
 
-    // Temporarily disable awareness completely
-    // const awarenessInstance = new Awareness(doc);
-    // awarenessRef.current = awarenessInstance;
+    // Re-enable awareness
+    const awarenessInstance = new Awareness(doc);
+    awarenessRef.current = awarenessInstance;
 
     // Assign a color and initial state to the current user
     // Use clientID to ensure consistent color assignment across sessions
@@ -119,14 +117,14 @@ const CollaborationDiagram = () => {
     const color = USER_COLORS[colorIndex];
     
     const user = {
-      id: doc.clientID, // Yjs clientID is fine for awareness state id
+      id: doc.clientID,
       name: `User ${doc.clientID.toString().slice(-4)}`,
       color: color,
       selectedNode: null,
     };
     setCurrentUser(user);
     console.log(`Assigned color ${color} to user ${user.name} (clientID: ${doc.clientID})`);
-    // awarenessInstance.setLocalStateField('user', user);
+    awarenessInstance.setLocalStateField('user', user);
 
     // Prevent multiple connections in React Strict Mode
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -191,10 +189,10 @@ const CollaborationDiagram = () => {
                 }
               }
           } else if (messageType === MESSAGE_AWARENESS) {
-              // Awareness temporarily disabled
-              // if (data.length > 0) {
-              //   applyAwarenessUpdate(awarenessRef.current, data, wsRef.current);
-              // }
+              // Re-enable awareness handling
+              if (data.length > 0) {
+                applyAwarenessUpdate(awarenessRef.current, data, wsRef.current);
+              }
           } else {
               console.warn(`Unknown message type: ${messageType}`);
           }
@@ -214,8 +212,8 @@ const CollaborationDiagram = () => {
     ws.onclose = (event) => {
       console.log('WebSocket disconnected. Code:', event.code, 'Reason:', event.reason || 'No reason');
       setIsConnected(false);
-      // Remove awareness state using the awareness instance, not Y namespace
-      // awarenessInstance.setLocalState(null); // Clear local awareness state
+      // Clear local awareness state
+      awarenessInstance.setLocalState(null);
     };
 
     // Send local Yjs doc updates to server
@@ -226,20 +224,19 @@ const CollaborationDiagram = () => {
     };
     doc.on('update', onDocUpdate);
 
-    // Send local awareness updates to server (temporarily disabled to debug message loop)
-    // const onAwarenessUpdate = () => {
-    //   // Temporarily disabled to stop message loop
-    //   // if (origin !== wsRef.current) {
-    //   //   const changedClients = added.concat(updated).concat(removed);
-    //   //   const awarenessUpdate = encodeAwarenessUpdate(awarenessInstance, changedClients);
-    //   //   sendToServer(MESSAGE_AWARENESS, awarenessUpdate);
-    //   // }
-    // };
-    // awarenessInstance.on('update', onAwarenessUpdate);
+    // Send local awareness updates to server
+    const onAwarenessUpdate = ({ added, updated, removed }, origin) => {
+      if (origin !== wsRef.current) {
+        const changedClients = added.concat(updated).concat(removed);
+        const awarenessUpdate = encodeAwarenessUpdate(awarenessInstance, changedClients);
+        sendToServer(MESSAGE_AWARENESS, awarenessUpdate);
+      }
+    };
+    awarenessInstance.on('update', onAwarenessUpdate);
 
     return () => {
       console.log('Cleaning up WebSocket and Yjs resources');
-      // awarenessInstance.off('update', onAwarenessUpdate);
+      awarenessInstance.off('update', onAwarenessUpdate);
       doc.off('update', onDocUpdate);
       
       // Properly close WebSocket connection
@@ -275,40 +272,58 @@ const CollaborationDiagram = () => {
 
   // Subscribe to Yjs shared types changes for UI updates
   useEffect(() => {
-    if (!yNodesRef.current || !yEdgesRef.current) return;
+    if (!yNodesRef.current || !yEdgesRef.current || !awarenessRef.current) return;
     
     const handleEdgesChange = () => {
       setEdges(yEdgesRef.current.toArray());
     };
 
-    // Temporarily disable awareness UI updates
-    // const handleAwarenessUiUpdate = () => {
-    //   const states = Array.from(awarenessRef.current.getStates().values());
-    //   setConnectedUsers(states.map(state => state.user).filter(Boolean));
-    //   setNodes(prevNodes => 
-    //     prevNodes.map(node => {
-    //       const selectingUser = states.find(state => state.user && state.user.selectedNode === node.id)?.user;
-    //       if (selectingUser) {
-    //         return { ...node, style: { ...node.style, border: `3px solid ${selectingUser.color}`, boxShadow: `0 0 10px ${selectingUser.color}` } };
-    //       }
-    //       return { ...node, style: { ...node.style, border: '1px solid #555', boxShadow: 'none' } }; 
-    //     })
-    //   );
-    // };
+    // Re-enable awareness UI updates
+    const handleAwarenessUiUpdate = () => {
+      const states = Array.from(awarenessRef.current.getStates().values());
+      const users = states.map(state => state.user).filter(Boolean);
+      console.log('👥 Awareness update - Total states:', states.length, 'Users:', users.length, users);
+      setConnectedUsers(users);
+      
+      // Update node styles to show selection
+      setNodes(prevNodes => 
+        prevNodes.map(node => {
+          const selectingUser = states.find(state => state.user && state.user.selectedNode === node.id)?.user;
+          if (selectingUser) {
+            return { 
+              ...node, 
+              style: { 
+                ...node.style, 
+                border: `3px solid ${selectingUser.color}`, 
+                boxShadow: `0 0 10px ${selectingUser.color}` 
+              } 
+            };
+          }
+          return { 
+            ...node, 
+            style: { 
+              ...node.style, 
+              border: '1px solid #555', 
+              boxShadow: 'none' 
+            } 
+          }; 
+        })
+      );
+    };
 
     yNodesRef.current.observeDeep(handleNodesChange);
     yEdgesRef.current.observeDeep(handleEdgesChange);
-    // awarenessRef.current.on('change', handleAwarenessUiUpdate); // Disabled
+    awarenessRef.current.on('change', handleAwarenessUiUpdate);
     
     // Initial UI load from local Yjs data
     handleNodesChange();
     handleEdgesChange();
-    // handleAwarenessUiUpdate(); // Disabled
+    handleAwarenessUiUpdate();
 
     return () => {
       yNodesRef.current.unobserveDeep(handleNodesChange);
       yEdgesRef.current.unobserveDeep(handleEdgesChange);
-      // awarenessRef.current.off('change', handleAwarenessUiUpdate); // Disabled
+      awarenessRef.current.off('change', handleAwarenessUiUpdate);
     };
   }, [currentUser]); // Rerun if currentUser changes
 
@@ -453,6 +468,7 @@ const CollaborationDiagram = () => {
           <MiniMap />
         </ReactFlow>
       </div>
+      <TestInstructions orgId={orgId} />
     </div>
   );
 };
