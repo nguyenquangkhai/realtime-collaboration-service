@@ -43,6 +43,43 @@ async function initializeRedis() {
 
 initializeRedis();
 
+// Redis storage functions with tenant isolation
+async function storeUpdateInRedis(roomName, update) {
+  try {
+    if (!redisClient.isOpen) {
+      console.warn('Redis client not connected, cannot store update');
+      return;
+    }
+    
+    // Use tenant-aware Redis key
+    const redisKey = `yjs:updates:${roomName}`;
+    const base64Update = Buffer.from(update).toString('base64');
+    await redisClient.rPush(redisKey, base64Update);
+    console.log(`💾 Stored update for tenant room ${roomName} in Redis`);
+  } catch (error) {
+    console.error('Error storing update in Redis:', error);
+  }
+}
+
+async function loadUpdatesFromRedis(roomName) {
+  try {
+    if (!redisClient.isOpen) {
+      console.warn('Redis client not connected, cannot load updates');
+      return [];
+    }
+    
+    // Use tenant-aware Redis key
+    const redisKey = `yjs:updates:${roomName}`;
+    const base64Updates = await redisClient.lRange(redisKey, 0, -1);
+    console.log(`📋 Loaded ${base64Updates.length} updates for tenant room ${roomName} from Redis`);
+    
+    return base64Updates.map(base64 => Buffer.from(base64, 'base64'));
+  } catch (error) {
+    console.error('Error loading updates from Redis:', error);
+    return [];
+  }
+}
+
 const getOrCreateDoc = async (roomName) => {
   if (!docs.has(roomName)) {
     const ydoc = new Y.Doc();
@@ -53,12 +90,11 @@ const getOrCreateDoc = async (roomName) => {
     if (redisPersistence) {
       try {
         console.log(`Loading existing doc ${roomName} from Redis...`);
-        const existingUpdates = await redisClient.lRange(`yjs:${roomName}`, 0, -1);
+        const existingUpdates = await loadUpdatesFromRedis(roomName);
         if (existingUpdates.length > 0) {
           console.log(`Found ${existingUpdates.length} existing updates for ${roomName}`);
-          existingUpdates.forEach(updateStr => {
+          existingUpdates.forEach(update => {
             try {
-              const update = Buffer.from(updateStr, 'base64');
               Y.applyUpdate(ydoc, update);
             } catch (err) {
               console.error('Error applying stored update:', err);
@@ -92,9 +128,7 @@ const getOrCreateDoc = async (roomName) => {
       // Store to Redis for persistence
       if (redisPersistence && originConn instanceof WebSocket) { // Only persist if update comes from a client
         try {
-          const updateBase64 = Buffer.from(update).toString('base64');
-          await redisClient.rPush(`yjs:${roomName}`, updateBase64);
-          console.log(`✅ Persisted update for doc ${roomName} to Redis`);
+          await storeUpdateInRedis(roomName, update);
         } catch (err) {
           console.error('Error storing update to Redis:', err);
         }
@@ -135,16 +169,23 @@ const send = (conn, messageType, data) => {
 };
 
 wss.on('connection', async (conn, req) => {
-  const roomName = req.url.slice(1).split('?')[0] || 'default-room';
+  // Parse URL to extract room and tenant info
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const roomName = url.pathname.slice(1) || 'default-room';
+  const orgId = url.searchParams.get('orgId') || 'default-org';
+  
+  // Create tenant-isolated room name
+  const tenantRoomName = `${orgId}:${roomName}`;
+  
   const clientID = uuidv4(); // Assign a unique ID to this connection for awareness
-  console.log(`User ${clientID} connected to room: ${roomName}`);
+  console.log(`👤 User ${clientID} connected to tenant '${orgId}', room '${roomName}' (${tenantRoomName})`);
 
   try {
-    const roomData = await getOrCreateDoc(roomName);
+    const roomData = await getOrCreateDoc(tenantRoomName);
     const { ydoc, awareness, conns } = roomData;
     
     conns.set(conn, new Set()); // Store connection
-    console.log(`User ${clientID} added to room connections`);
+    console.log(`✅ User ${clientID} added to tenant room ${tenantRoomName}`);
 
     // Handle messages from client
     conn.on('message', (message) => {
@@ -168,7 +209,7 @@ wss.on('connection', async (conn, req) => {
               // Check if this is a state vector (small size) or document update (larger)
               if (data.length <= 10) {
                 // Likely a state vector - respond with full document state
-                console.log(`Received state vector from user ${clientID}, sending document state`);
+                console.log(`📤 Sending document state to user ${clientID} in tenant ${orgId}`);
                 const fullUpdate = Y.encodeStateAsUpdate(ydoc);
                 if (fullUpdate.length > 1) {
                   send(conn, MESSAGE_SYNC, fullUpdate);
@@ -176,7 +217,7 @@ wss.on('connection', async (conn, req) => {
               } else {
                 // Likely a document update - apply it
                 try {
-                  console.log(`Received document update from user ${clientID}`);
+                  console.log(`📥 Received document update from user ${clientID} in tenant ${orgId}`);
                   Y.applyUpdate(ydoc, data, conn);
                 } catch (updateError) {
                   console.error('Error applying document update:', updateError);
@@ -197,24 +238,24 @@ wss.on('connection', async (conn, req) => {
 
     // Handle client disconnection
     conn.on('close', (code, reason) => {
-      console.log(`User ${clientID} disconnected from room: ${roomName}. Code: ${code}, Reason: ${reason || 'No reason'}`);
+      console.log(`👋 User ${clientID} disconnected from tenant '${orgId}', room '${roomName}'. Code: ${code}, Reason: ${reason || 'No reason'}`);
       conns.delete(conn);
     });
 
     // Handle client errors
     conn.on('error', (error) => {
-      console.error(`WebSocket error for user ${clientID}:`, error);
+      console.error(`WebSocket error for user ${clientID} in tenant ${orgId}:`, error);
       conns.delete(conn);
     });
 
-    console.log(`Preparing to send initial sync to user ${clientID}`);
+    console.log(`🔄 Preparing to send initial sync to user ${clientID} in tenant ${orgId}`);
 
     // Send initial sync messages with error handling
     // Delay slightly to ensure WebSocket is fully ready
     setTimeout(() => {
       if (conn.readyState === WebSocket.OPEN) {
         try {
-          console.log(`Sending initial sync to user ${clientID}`);
+          console.log(`🚀 Sending initial sync to user ${clientID} in tenant ${orgId}`);
           
           // Send initial sync step 1 (send entire doc state vector)
           const stateVector = Y.encodeStateVector(ydoc);
@@ -236,9 +277,9 @@ wss.on('connection', async (conn, req) => {
             }
           }
           
-          console.log(`Initial sync completed for user ${clientID}`);
+          console.log(`✅ Initial sync completed for user ${clientID} in tenant ${orgId}`);
         } catch (error) {
-          console.error(`Error sending initial sync to user ${clientID}:`, error);
+          console.error(`Error sending initial sync to user ${clientID} in tenant ${orgId}:`, error);
         }
       } else {
         console.warn(`Cannot send initial sync to user ${clientID}, WebSocket not open. ReadyState: ${conn.readyState}`);
@@ -246,7 +287,7 @@ wss.on('connection', async (conn, req) => {
     }, 100); // 100ms delay
 
   } catch (error) {
-    console.error(`Error setting up connection for user ${clientID}:`, error);
+    console.error(`Error setting up connection for user ${clientID} in tenant ${orgId}:`, error);
     conn.close();
   }
 });

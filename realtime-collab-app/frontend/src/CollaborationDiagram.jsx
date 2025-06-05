@@ -6,6 +6,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import * as Y from 'yjs';
+import TenantHeader from './components/TenantHeader';
 // import { Awareness, /* encodeAwarenessUpdate, */ applyAwarenessUpdate } from 'y-protocols/awareness.js';
 // import { Buffer } from 'buffer'; // Removed - using Uint8Array instead
 // import { WebsocketProvider } from 'y-websocket'; // Removed
@@ -26,9 +27,35 @@ const getNodeId = () => `node_${+new Date()}_${Math.random().toString(36).substr
 const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
 
-const WEBSOCKET_URL = 'ws://localhost:1234/diagram-room'; // Room name in URL
+// Extract orgId from URL parameters
+const getOrgIdFromUrl = () => {
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    let orgId = urlParams.get('orgId');
+    
+    // Fallback manual parsing
+    if (!orgId) {
+      const searchString = window.location.search;
+      const match = searchString.match(/[?&]orgId=([^&]*)/);
+      orgId = match ? decodeURIComponent(match[1]) : null;
+    }
+    
+    return orgId || 'default-org';
+  } catch (error) {
+    console.error('Error parsing URL parameters:', error);
+    return 'default-org';
+  }
+};
 
 const CollaborationDiagram = () => {
+  // Get tenant from URL
+  const orgId = getOrgIdFromUrl();
+  
+  // Create tenant-aware WebSocket URL
+  const WEBSOCKET_URL = `ws://localhost:1234/flow-diagram?orgId=${encodeURIComponent(orgId)}`;
+  
+  console.log('🏢 Current Tenant:', orgId);
+  console.log('📡 WebSocket URL:', WEBSOCKET_URL);
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   // const [awareness, setAwareness] = useState(null); // Direct ref now
@@ -401,21 +428,13 @@ const CollaborationDiagram = () => {
 
   return (
     <div style={{ height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ padding: '10px', background: '#f0f0f0', borderBottom: '1px solid #ccc' }}>
-        <button onClick={addNode} style={{ marginRight: '10px' }}>Add Node</button>
-        <span style={{ color: isConnected ? 'green' : 'red' }}>Status: {isConnected ? 'Connected' : 'Disconnected'}</span>
-        <span style={{ marginLeft: '10px', color: 'blue' }}>Users: {connectedUsers.length}</span>
-        <div style={{ display: 'flex', marginTop: '5px', color: 'blue' }}>
-          {connectedUsers.map(user => (
-            user && user.id &&
-            <div key={user.id} title={`${user.name} (ID: ${user.id})`} style={{
-              width: '20px', height: '20px', backgroundColor: user.color, borderRadius: '50%',
-              marginRight: '5px', border: currentUser && user.id === currentUser.id ? '2px solid black' : '2px solid transparent'
-            }}></div>
-          ))}
-        </div>
-         {currentUser && <p style={{ color: 'blue' }}>You: {currentUser.name} (Color: <span style={{color: currentUser.color, fontWeight:'bold'}}>{currentUser.color}</span>)</p>}
-      </div>
+      <TenantHeader 
+        orgId={orgId}
+        isConnected={isConnected}
+        connectedUsers={connectedUsers}
+        currentUser={currentUser}
+        onAddNode={addNode}
+      />
       <div style={{ flexGrow: 1 }}>
         <ReactFlow
           nodes={nodes}
