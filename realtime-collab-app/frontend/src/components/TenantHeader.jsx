@@ -5,7 +5,8 @@ const TenantHeader = ({
   isConnected, 
   connectedUsers, 
   currentUser, 
-  onAddNode 
+  onAddNode,
+  onClearNodes 
 }) => {
   // Get total user count (including current user if not already in the list)
   const totalUsers = connectedUsers.length;
@@ -27,7 +28,7 @@ const TenantHeader = ({
   }, [totalUsers, previousUserCount]);
   
   return (
-    <div style={{ padding: '10px', background: '#f0f0f0', borderBottom: '1px solid #ccc' }}>
+    <div style={{ padding: '10px', backgroundColor: '#f0f0f0', borderBottom: '1px solid #ccc' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '5px' }}>
         <span style={{ fontWeight: 'bold', color: '#2563eb' }}>
           🏢 Tenant: {orgId}
@@ -42,6 +43,22 @@ const TenantHeader = ({
         }}>
           Add Node
         </button>
+        {onClearNodes && (
+          <button onClick={() => {
+            if (window.confirm('Clear all nodes?')) {
+              onClearNodes();
+            }
+          }} style={{ 
+            padding: '4px 8px',
+            backgroundColor: '#ef4444',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}>
+            Clear All
+          </button>
+        )}
         <span style={{ color: isConnected ? 'green' : 'red' }}>
           {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
         </span>
@@ -81,8 +98,8 @@ const TenantHeader = ({
               <div style={{
                 width: '16px', 
                 height: '16px', 
-                backgroundColor: user.color, 
-                borderRadius: '50%',
+            backgroundColor: user.color, 
+            borderRadius: '50%',
                 border: '1px solid #fff',
                 position: 'relative'
               }}>
@@ -96,11 +113,13 @@ const TenantHeader = ({
                   backgroundColor: '#10b981',
                   borderRadius: '50%',
                   border: '1px solid #fff'
-                }}></div>
+          }}></div>
               </div>
               <span style={{ color: '#333', fontWeight: currentUser && user.id === currentUser.id ? 'bold' : 'normal' }}>
                 {user.name}
                 {currentUser && user.id === currentUser.id && ' (You)'}
+                {user.isDragging && ' 🖱️'}
+                {user.selectedNode && !user.isDragging && ' ✋'}
               </span>
             </div>
           )
@@ -120,7 +139,7 @@ const TenantHeader = ({
           <strong>You:</strong> {currentUser.name} • 
           <span style={{color: currentUser.color, fontWeight:'bold'}}> ●</span> {currentUser.color}
           {currentUser.selectedNode && (
-            <span> • Selected: {currentUser.selectedNode}</span>
+            <span> • {currentUser.isDragging ? 'Dragging' : 'Selected'}: {currentUser.selectedNode}</span>
           )}
         </div>
       )}

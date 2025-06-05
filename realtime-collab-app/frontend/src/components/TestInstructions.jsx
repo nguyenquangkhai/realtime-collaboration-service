@@ -51,22 +51,29 @@ const TestInstructions = ({ orgId }) => {
         <h3 style={{ margin: 0, color: '#1e40af' }}>🧪 Multi-User Testing</h3>
         <button 
           onClick={() => setIsExpanded(false)}
-          style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer' }}
+          style={{ 
+            backgroundColor: 'transparent', 
+            border: 'none', 
+            fontSize: '18px', 
+            cursor: 'pointer',
+            color: '#6b7280',
+            padding: '4px'
+          }}
         >
           ✕
         </button>
       </div>
       
-      <div style={{ fontSize: '14px', lineHeight: '1.4' }}>
-        <p style={{ margin: '0 0 8px 0' }}>
-          <strong>Current tenant:</strong> <code style={{ backgroundColor: '#f1f5f9', padding: '2px 4px', borderRadius: '3px' }}>{orgId}</code>
+      <div style={{ fontSize: '14px', lineHeight: '1.4', color: '#374151' }}>
+        <p style={{ margin: '0 0 8px 0', color: '#374151' }}>
+          <strong style={{ color: '#1f2937' }}>Current tenant:</strong> <code style={{ backgroundColor: '#f1f5f9', padding: '2px 4px', borderRadius: '3px', color: '#1f2937' }}>{orgId}</code>
         </p>
         
-        <p style={{ margin: '8px 0' }}>
-          <strong>To test collaboration:</strong>
+        <p style={{ margin: '8px 0', color: '#374151' }}>
+          <strong style={{ color: '#1f2937' }}>To test collaboration:</strong>
         </p>
         
-        <ol style={{ margin: '8px 0', paddingLeft: '20px' }}>
+        <ol style={{ margin: '8px 0', paddingLeft: '20px', color: '#374151' }}>
           <li>Open new browser tabs/windows</li>
           <li>Use these test URLs (click to copy):</li>
         </ol>
@@ -85,7 +92,8 @@ const TestInstructions = ({ orgId }) => {
                   cursor: 'pointer',
                   width: '100%',
                   textAlign: 'left',
-                  fontFamily: 'monospace'
+                  fontFamily: 'monospace',
+                  color: '#1f2937'
                 }}
               >
                 📋 Tenant: org{index + 1}
@@ -99,14 +107,17 @@ const TestInstructions = ({ orgId }) => {
           padding: '8px', 
           backgroundColor: '#fef3c7', 
           borderRadius: '4px',
-          fontSize: '12px'
+          fontSize: '12px',
+          color: '#92400e'
         }}>
-          <strong>💡 What to expect:</strong>
-          <ul style={{ margin: '4px 0', paddingLeft: '16px' }}>
+          <strong style={{ color: '#78350f' }}>💡 What to expect:</strong>
+          <ul style={{ margin: '4px 0', paddingLeft: '16px', color: '#92400e' }}>
             <li>Same tenant = shared canvas</li>
             <li>Different tenants = isolated</li>
             <li>User count & colors update live</li>
             <li>Node changes sync in real-time</li>
+            <li>Dragging nodes shows user colors</li>
+            <li>Live indicators: 🖱️ dragging, ✋ selected</li>
           </ul>
         </div>
       </div>
