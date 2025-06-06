@@ -13,9 +13,10 @@ import * as promise from 'lib0/promise'
  */
 
 /**
+ * @param {string} prefix - Storage prefix for app isolation
  * @param {MemoryStorageOpts} opts
  */
-export const createMemoryStorage = (opts = {}) => new MemoryStorage(opts)
+export const createMemoryStorage = (prefix = 'default', opts = {}) => new MemoryStorage(prefix, opts)
 
 /**
  * A helper Storage implementation for testing when only using one server. For production use
@@ -25,11 +26,13 @@ export const createMemoryStorage = (opts = {}) => new MemoryStorage(opts)
  */
 export class MemoryStorage {
   /**
+   * @param {string} prefix - Storage prefix for app isolation
    * @param {MemoryStorageOpts} _opts
    */
-  constructor (_opts) {
+  constructor (prefix = 'default', _opts = {}) {
+    this.prefix = prefix
     /**
-     * path := room.docid.referenceid
+     * path := prefix.room.docid.referenceid
      * @type {Map<string, Map<string, Map<string, Uint8Array>>>}
      */
     this.docs = new Map()
@@ -42,8 +45,9 @@ export class MemoryStorage {
    * @returns {Promise<void>}
    */
   persistDoc (room, docname, ydoc) {
+    const prefixedRoom = `${this.prefix}:${room}`
     map.setIfUndefined(
-      map.setIfUndefined(this.docs, room, map.create),
+      map.setIfUndefined(this.docs, prefixedRoom, map.create),
       docname,
       map.create
     ).set(random.uuidv4(), Y.encodeStateAsUpdateV2(ydoc))
@@ -56,7 +60,8 @@ export class MemoryStorage {
    * @return {Promise<{ doc: Uint8Array, references: Array<string> } | null>}
    */
   async retrieveDoc (room, docname) {
-    const refs = this.docs.get(room)?.get(docname)
+    const prefixedRoom = `${this.prefix}:${room}`
+    const refs = this.docs.get(prefixedRoom)?.get(docname)
     return promise.resolveWith((refs == null || refs.size === 0) ? null : { doc: Y.mergeUpdatesV2(array.from(refs.values())), references: array.from(refs.keys()) })
   }
 
@@ -80,8 +85,9 @@ export class MemoryStorage {
    * @return {Promise<void>}
    */
   deleteReferences (room, docname, storeReferences) {
+    const prefixedRoom = `${this.prefix}:${room}`
     storeReferences.forEach(r => {
-      this.docs.get(room)?.get(docname)?.delete(r)
+      this.docs.get(prefixedRoom)?.get(docname)?.delete(r)
     })
     return promise.resolve()
   }

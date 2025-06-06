@@ -10,21 +10,87 @@ import { createStorage } from './src/storage/index.js'
 // Configuration
 const PORT = process.env.PORT || 3001
 const HOST = process.env.HOST || 'localhost'
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379/1'
+const BASE_REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
 const DOC_CLEANUP_INTERVAL = parseInt(process.env.DOC_CLEANUP_INTERVAL) || 600000 // 10 minutes
 
 console.log('🚀 Starting y-redis collaborative server...')
 console.log(`📡 Server: http://${HOST}:${PORT}`)
-console.log(`🔗 Redis: ${REDIS_URL}`)
+console.log(`🔗 Base Redis: ${BASE_REDIS_URL}`)
 console.log(`🧹 Document cleanup interval: ${DOC_CLEANUP_INTERVAL}ms`)
 
-// Create Redis persistence using database isolation
-const redisPersistence = new RedisPersistence({
-  redisOpts: { url: REDIS_URL }
-})
+// App-specific configurations
+const APP_CONFIGS = {
+  text: {
+    redisDatabase: 1,
+    storagePrefix: 'text-docs',
+    description: 'Text Editor'
+  },
+  nodes: {
+    redisDatabase: 2,
+    storagePrefix: 'node-diagrams',
+    description: 'Node Diagrams'
+  },
+  default: {
+    redisDatabase: 0,
+    storagePrefix: 'default-docs',
+    description: 'Default'
+  }
+}
 
-// Create storage provider (S3, Memory, etc.)
-const storage = createStorage()
+// Create app-specific Redis persistence instances
+const redisPersistenceInstances = new Map()
+const storageInstances = new Map()
+
+for (const [appType, config] of Object.entries(APP_CONFIGS)) {
+  const redisUrl = `${BASE_REDIS_URL}/${config.redisDatabase}`
+  console.log(`🔧 Setting up ${config.description} (${appType}): Redis DB ${config.redisDatabase}, Storage: ${config.storagePrefix}`)
+  
+  redisPersistenceInstances.set(appType, new RedisPersistence({
+    redisOpts: { url: redisUrl }
+  }))
+  
+  storageInstances.set(appType, createStorage(config.storagePrefix))
+}
+
+// Helper function to get app type from room name or query params
+function getAppTypeFromRequest(req, docName) {
+  // Check query parameters first
+  const url = new URL(req.url, `http://${req.headers.host}`)
+  const appType = url.searchParams.get('appType')
+  if (appType && APP_CONFIGS[appType]) {
+    return appType
+  }
+  
+  // Fallback: detect from room name prefix
+  if (docName.startsWith('text-')) {
+    return 'text'
+  } else if (docName.startsWith('nodes-')) {
+    return 'nodes'
+  }
+  
+  return 'default'
+}
+
+// Helper function to get app-specific instances
+function getAppInstances(appType) {
+  const redisPersistence = redisPersistenceInstances.get(appType)
+  const storage = storageInstances.get(appType)
+  
+  if (!redisPersistence || !storage) {
+    console.warn(`⚠️ No instances found for app type: ${appType}, falling back to default`)
+    return {
+      redisPersistence: redisPersistenceInstances.get('default'),
+      storage: storageInstances.get('default'),
+      config: APP_CONFIGS.default
+    }
+  }
+  
+  return {
+    redisPersistence,
+    storage,
+    config: APP_CONFIGS[appType]
+  }
+}
 
 // Store documents and awareness instances (for active rooms only)
 const docs = new Map()
@@ -52,14 +118,15 @@ const send = (conn, message) => {
 /**
  * Update room activity and notify worker queue
  */
-async function updateRoomActivity(docName) {
+async function updateRoomActivity(docName, appType) {
   roomLastActivity.set(docName, Date.now())
   
   // Notify worker queue for coordination
   try {
+    const { redisPersistence } = getAppInstances(appType)
     const redis = redisPersistence.redis
     if (redis) {
-      await redis.xadd('y:worker', '*', 'room', docName, 'action', 'activity')
+      await redis.xadd('y:worker', '*', 'room', docName, 'action', 'activity', 'appType', appType)
     }
   } catch (error) {
     console.error(`❌ Error notifying worker queue for room ${docName}:`, error)
@@ -69,24 +136,26 @@ async function updateRoomActivity(docName) {
 /**
  * Load initial document state from Redis and persistent storage
  */
-async function loadInitialDocumentState(docName, doc) {
+async function loadInitialDocumentState(docName, doc, appType) {
   try {
-    console.log(`📥 Loading initial state for room: ${docName}`)
+    console.log(`📥 Loading initial state for room: ${docName} (app: ${appType})`)
+    
+    const { redisPersistence, storage, config } = getAppInstances(appType)
     
     // First, try to load from persistent storage (S3, etc.)
     try {
       const persistedData = await storage.retrieveDoc(docName, 'default')
       if (persistedData && persistedData.doc) {
-        console.log(`📦 Loaded ${persistedData.doc.length} bytes from persistent storage`)
+        console.log(`📦 Loaded ${persistedData.doc.length} bytes from persistent storage (${config.storagePrefix})`)
         Y.applyUpdateV2(doc, persistedData.doc)
       }
     } catch (storageError) {
-      console.log(`📦 No persisted data found for room ${docName}:`, storageError.message)
+      console.log(`📦 No persisted data found for room ${docName} in ${config.storagePrefix}:`, storageError.message)
     }
     
     // Then, bind to Redis for real-time updates
     await redisPersistence.bindState(docName, doc)
-    console.log(`🔗 Bound room ${docName} to Redis streams`)
+    console.log(`🔗 Bound room ${docName} to Redis DB ${config.redisDatabase}`)
     
   } catch (error) {
     console.error(`❌ Error loading initial state for ${docName}:`, error)
@@ -97,32 +166,33 @@ async function loadInitialDocumentState(docName, doc) {
 /**
  * Track connection counts per room
  */
-function addRoomConnection(docName, conn) {
+function addRoomConnection(docName, conn, appType) {
   if (!roomConnections.has(docName)) {
     roomConnections.set(docName, new Set())
   }
   roomConnections.get(docName).add(conn)
-  updateRoomActivity(docName)
-  console.log(`👥 Room ${docName} now has ${roomConnections.get(docName).size} connections`)
+  updateRoomActivity(docName, appType)
+  console.log(`👥 Room ${docName} (${appType}) now has ${roomConnections.get(docName).size} connections`)
 }
 
-async function removeRoomConnection(docName, conn) {
+async function removeRoomConnection(docName, conn, appType) {
   if (roomConnections.has(docName)) {
     roomConnections.get(docName).delete(conn)
     const remainingConnections = roomConnections.get(docName).size
     
-    console.log(`👥 Room ${docName} now has ${remainingConnections} connections`)
+    console.log(`👥 Room ${docName} (${appType}) now has ${remainingConnections} connections`)
     
     if (remainingConnections === 0) {
       roomConnections.delete(docName)
-      console.log(`📤 Room ${docName} is now empty`)
+      console.log(`📤 Room ${docName} (${appType}) is now empty`)
       
       // Notify worker that room is now empty
       try {
+        const { redisPersistence } = getAppInstances(appType)
         const redis = redisPersistence.redis
         if (redis) {
-          await redis.xadd('y:worker', '*', 'room', docName, 'action', 'empty')
-          console.log(`📢 Notified worker that room ${docName} is empty`)
+          await redis.xadd('y:worker', '*', 'room', docName, 'action', 'empty', 'appType', appType)
+          console.log(`📢 Notified worker that room ${docName} (${appType}) is empty`)
         }
       } catch (error) {
         console.error(`❌ Error notifying worker about empty room ${docName}:`, error)
@@ -134,8 +204,14 @@ async function removeRoomConnection(docName, conn) {
 const setupWSConnection = async (conn, req, { docName = req.url.slice(1).split('?')[0] || 'default' } = {}) => {
   conn.binaryType = 'arraybuffer'
   
+  // Determine app type from request
+  const appType = getAppTypeFromRequest(req, docName)
+  const { config } = getAppInstances(appType)
+  
+  console.log(`🔌 New connection to room: ${docName} (app: ${appType})`)
+  
   // Track this connection
-  addRoomConnection(docName, conn)
+  addRoomConnection(docName, conn, appType)
   
   // Get or create document
   let doc = docs.get(docName)
@@ -147,20 +223,20 @@ const setupWSConnection = async (conn, req, { docName = req.url.slice(1).split('
     
     // Load initial state from persistent storage + Redis
     try {
-      await loadInitialDocumentState(docName, doc)
+      await loadInitialDocumentState(docName, doc, appType)
     } catch (error) {
       console.error(`❌ Failed to load initial state for ${docName}:`, error)
       // Continue with empty document
     }
     
-    console.log(`📄 Created new document: ${docName}`)
+    console.log(`📄 Created new document: ${docName} (${config.description})`)
   }
   
   // Ensure awareness exists (might be missing even if doc exists)
   if (!awareness) {
     awareness = new awarenessProtocol.Awareness(doc)
     docAwareness.set(docName, awareness)
-    console.log(`📡 Created awareness for existing document: ${docName}`)
+    console.log(`📡 Created awareness for existing document: ${docName} (${config.description})`)
   }
 
   const encoder = encoding.createEncoder()
@@ -212,11 +288,11 @@ const setupWSConnection = async (conn, req, { docName = req.url.slice(1).split('
   // Handle close
   conn.on('close', () => {
     awareness.off('update', awarenessChangeHandler)
-    removeRoomConnection(docName, conn)
-    console.log(`📤 Client disconnected from: ${docName}`)
+    removeRoomConnection(docName, conn, appType)
+    console.log(`📤 Client disconnected from: ${docName} (${appType})`)
   })
   
-  console.log(`📥 Client connected to: ${docName}`)
+  console.log(`📥 Client connected to: ${docName} (${appType})`)
 }
 
 /**
@@ -261,7 +337,13 @@ console.log('💡 Frontend can now connect to ws://localhost:3001')
 // Graceful shutdown
 process.on('SIGINT', () => {
   console.log('\n🛑 Shutting down server...')
-  redisPersistence.destroy()
+  
+  // Destroy all Redis persistence instances
+  for (const [appType, persistence] of redisPersistenceInstances) {
+    console.log(`🔌 Closing Redis connection for ${appType}...`)
+    persistence.destroy()
+  }
+  
   wss.close(() => {
     console.log('✅ Server closed')
     process.exit(0)
@@ -270,7 +352,12 @@ process.on('SIGINT', () => {
 
 process.on('SIGTERM', () => {
   console.log('\n🛑 Received SIGTERM, shutting down...')
-  redisPersistence.destroy()
+  
+  // Destroy all Redis persistence instances
+  for (const [appType, persistence] of redisPersistenceInstances) {
+    persistence.destroy()
+  }
+  
   wss.close(() => {
     process.exit(0)
   })

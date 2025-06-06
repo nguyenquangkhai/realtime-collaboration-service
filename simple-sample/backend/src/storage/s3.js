@@ -15,14 +15,15 @@ const log = logging.createModuleLogger('@y/redis/s3')
 /**
  * @todo perform some sanity checks here before starting (bucket exists, ..)
  * @param {string} bucketName
+ * @param {string} prefix - Storage prefix for app isolation
  */
-export const createS3Storage = (bucketName) => {
+export const createS3Storage = (bucketName, prefix = 'default') => {
   const endPoint = env.ensureConf('s3-endpoint')
   const port = number.parseInt(env.ensureConf('s3-port'))
   const useSSL = !['false', '0'].includes(env.getConf('s3-ssl') || 'false')
   const accessKey = env.ensureConf('s3-access-key')
   const secretKey = env.ensureConf('s3-secret-key')
-  return new S3Storage(bucketName, {
+  return new S3Storage(bucketName, prefix, {
     endPoint,
     port,
     useSSL,
@@ -34,18 +35,19 @@ export const createS3Storage = (bucketName) => {
 /**
  * @param {string} room
  * @param {string} docid
+ * @param {string} prefix
  */
-export const encodeS3ObjectName = (room, docid, r = random.uuidv4()) => `${encodeURIComponent(room)}/${encodeURIComponent(docid)}/${r}`
+export const encodeS3ObjectName = (room, docid, prefix = 'default', r = random.uuidv4()) => `${prefix}/${encodeURIComponent(room)}/${encodeURIComponent(docid)}/${r}`
 
 /**
  * @param {string} objectName
  */
 export const decodeS3ObjectName = objectName => {
-  const match = objectName.match(/(.*)\/(.*)\/(.*)$/)
+  const match = objectName.match(/(.*)\/(.*)\/(.*)\/(.*)$/)
   if (match == null) {
     throw new Error('Malformed y:room stream name!')
   }
-  return { room: decodeURIComponent(match[1]), docid: decodeURIComponent(match[2]), r: match[3] }
+  return { prefix: match[1], room: decodeURIComponent(match[2]), docid: decodeURIComponent(match[3]), r: match[4] }
 }
 
 /**
@@ -77,10 +79,12 @@ const readStream = stream => promise.create((resolve, reject) => {
 export class S3Storage {
   /**
    * @param {string} bucketName
+   * @param {string} prefix - Storage prefix for app isolation
    * @param {S3StorageConf} conf
    */
-  constructor (bucketName, { endPoint, port, useSSL, accessKey, secretKey }) {
+  constructor (bucketName, prefix = 'default', { endPoint, port, useSSL, accessKey, secretKey }) {
     this.bucketName = bucketName
+    this.prefix = prefix
     this.client = new minio.Client({
       endPoint,
       port,
@@ -97,7 +101,7 @@ export class S3Storage {
    * @returns {Promise<void>}
    */
   async persistDoc (room, docname, ydoc) {
-    const objectName = encodeS3ObjectName(room, docname)
+    const objectName = encodeS3ObjectName(room, docname, this.prefix)
     await this.client.putObject(this.bucketName, objectName, Buffer.from(Y.encodeStateAsUpdateV2(ydoc)))
   }
 
@@ -107,17 +111,17 @@ export class S3Storage {
    * @return {Promise<{ doc: Uint8Array, references: Array<string> } | null>}
    */
   async retrieveDoc (room, docname) {
-    log('retrieving doc room=' + room + ' docname=' + docname)
-    const objNames = await this.client.listObjectsV2(this.bucketName, encodeS3ObjectName(room, docname, ''), true).toArray()
+    log('retrieving doc room=' + room + ' docname=' + docname + ' prefix=' + this.prefix)
+    const objNames = await this.client.listObjectsV2(this.bucketName, encodeS3ObjectName(room, docname, this.prefix, ''), true).toArray()
     const references = objNames.map(obj => obj.name)
-    log('retrieved doc room=' + room + ' docname=' + docname + ' refs=' + JSON.stringify(references))
+    log('retrieved doc room=' + room + ' docname=' + docname + ' prefix=' + this.prefix + ' refs=' + JSON.stringify(references))
 
     if (references.length === 0) {
       return null
     }
     let updates = await promise.all(references.map(ref => this.client.getObject(this.bucketName, ref).then(readStream)))
     updates = updates.filter(update => update != null)
-    log('retrieved doc room=' + room + ' docname=' + docname + ' updatesLen=' + updates.length)
+    log('retrieved doc room=' + room + ' docname=' + docname + ' prefix=' + this.prefix + ' updatesLen=' + updates.length)
     return { doc: Y.mergeUpdatesV2(updates), references }
   }
 

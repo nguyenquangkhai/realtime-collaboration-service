@@ -13,18 +13,19 @@ import * as env from 'lib0/environment'
 
 /**
  * Create storage provider based on environment configuration
+ * @param {string} prefix - Optional prefix for app-specific storage isolation
  * @returns {AbstractStorage}
  */
-export const createStorage = () => {
+export const createStorage = (prefix = 'default') => {
   const storageType = env.getConf('STORAGE_TYPE') || 'memory'
   
   switch (storageType) {
     case 's3':
       const bucketName = env.ensureConf('s3-bucket')
-      return createS3Storage(bucketName)
+      return createS3Storage(bucketName, prefix)
     case 'memory':
     default:
-      return createMemoryStorage()
+      return createMemoryStorage(prefix)
   }
 }
 
