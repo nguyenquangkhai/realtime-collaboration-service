@@ -21,6 +21,8 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
   const [isConnected, setIsConnected] = useState(false);
   const [username, setUsername] = useState('');
   const [connectedUsers, setConnectedUsers] = useState([]);
+  const [selectedNodes, setSelectedNodes] = useState([]);
+  const [userSelections, setUserSelections] = useState(new Map());
 
   // Yjs refs
   const ydocRef = useRef(null);
@@ -29,6 +31,7 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
   const yedgesRef = useRef(null);
   const awarenessRef = useRef(null);
   const isUpdatingFromYjs = useRef(false);
+  const userColor = useRef(null);
 
   // User colors for collaboration
   const userColors = [
@@ -44,19 +47,21 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
     const newUsername = e.target.value;
     setUsername(newUsername);
     
-    if (awarenessRef.current) {
+    if (awarenessRef.current && userColor.current) {
       awarenessRef.current.setLocalStateField('user', { 
         name: newUsername, 
-        color: userColors[Math.floor(Math.random() * userColors.length)]
+        color: userColor.current
       });
     }
   };
 
   // Initialize Yjs collaboration
   useEffect(() => {
-    // Generate random username
+    // Generate random username and assign color
     const randomUsername = DoUsername.generate(15);
+    const assignedColor = userColors[Math.floor(Math.random() * userColors.length)];
     setUsername(randomUsername);
+    userColor.current = assignedColor;
 
     // Create Yjs document
     const ydoc = new Y.Doc();
@@ -81,7 +86,7 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
     
     awareness.setLocalStateField('user', { 
       name: randomUsername, 
-      color: userColors[Math.floor(Math.random() * userColors.length)]
+      color: assignedColor
     });
 
     // Handle connection status
@@ -97,15 +102,33 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
       setIsConnected(false);
     });
 
-    // Listen to awareness changes for user list
+    // Listen to awareness changes for user list, selections, and drag states
     awareness.on('change', () => {
       const users = [];
-      awareness.getStates().forEach(state => {
+      const interactions = new Map();
+      
+      awareness.getStates().forEach((state, clientId) => {
         if (state.user) {
           users.push(state.user);
+          
+          // Track user interactions (excluding our own) - both selections and dragging
+          if (clientId !== awareness.clientID) {
+            const userInteraction = {
+              user: state.user,
+              selectedNodes: state.selectedNodes || [],
+              draggedNode: state.draggedNode || null
+            };
+            
+            // Only add to map if user has any interactions
+            if (userInteraction.selectedNodes.length > 0 || userInteraction.draggedNode) {
+              interactions.set(clientId, userInteraction);
+            }
+          }
         }
       });
+      
       setConnectedUsers(users);
+      setUserSelections(interactions);
     });
 
     // Listen to nodes changes from Yjs
@@ -308,6 +331,125 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
     }
   }, [isConnected]);
 
+  // Handle node position changes (drag)
+  const handleNodeDragStart = useCallback((event, node) => {
+    console.log('Node drag started:', node.id);
+    
+    // Broadcast drag start to other users via awareness
+    if (awarenessRef.current && userColor.current) {
+      awarenessRef.current.setLocalStateField('draggedNode', node.id);
+      awarenessRef.current.setLocalStateField('user', { 
+        name: username, 
+        color: userColor.current 
+      });
+    }
+  }, [username]);
+
+  const handleNodeDrag = useCallback((event, node) => {
+    // Continue broadcasting that we're dragging this node
+    if (awarenessRef.current && userColor.current) {
+      awarenessRef.current.setLocalStateField('draggedNode', node.id);
+    }
+  }, []);
+
+  // Handle node position changes (drag)
+  const handleNodeDragStop = useCallback((event, node) => {
+    console.log('Node drag stopped:', node.id, 'new position:', node.position);
+    
+    // Clear dragged node from awareness
+    if (awarenessRef.current) {
+      awarenessRef.current.setLocalStateField('draggedNode', null);
+    }
+    
+    if (!ynodesRef.current) return;
+    
+    // Find and update the node in Yjs array
+    const nodes = ynodesRef.current.toArray();
+    const nodeIndex = nodes.findIndex(n => n.id === node.id);
+    
+    if (nodeIndex !== -1) {
+      const updatedNode = { ...nodes[nodeIndex], position: node.position };
+      
+      // Update the specific node in Yjs array
+      ynodesRef.current.delete(nodeIndex, 1);
+      ynodesRef.current.insert(nodeIndex, [updatedNode]);
+      
+      console.log('Updated node position in Yjs');
+    }
+  }, []);
+
+  // Handle selection changes
+  const handleSelectionChange = useCallback((params) => {
+    const selectedNodeIds = params.nodes;
+    console.log('Selection changed:', selectedNodeIds);
+    
+    setSelectedNodes(selectedNodeIds);
+    
+    // Broadcast selection to other users via awareness
+    if (awarenessRef.current) {
+      awarenessRef.current.setLocalStateField('selectedNodes', selectedNodeIds);
+    }
+  }, []);
+
+  // Create styled nodes with user interaction highlights (selection + dragging)
+  const getStyledNodes = useCallback(() => {
+    return nodes.map(node => {
+      let style = { 
+        ...node.style,
+        // Default style for unselected nodes
+        border: '1px solid #d1d5db',
+        borderRadius: '6px',
+        backgroundColor: '#ffffff',
+        transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
+      };
+      
+      let interactingUser = null;
+      let interactionType = null;
+      
+      // Check if this node is being interacted with by any other user (not ourselves)
+      for (const [clientId, interaction] of userSelections) {
+        // Check if user is dragging this node
+        if (interaction.draggedNode === node.id) {
+          interactingUser = interaction.user;
+          interactionType = 'dragging';
+          break;
+        }
+        // Check if user has selected this node (only if not dragging)
+        else if (interaction.selectedNodes.includes(node.id)) {
+          interactingUser = interaction.user;
+          interactionType = 'selected';
+          // Don't break here, dragging takes priority
+        }
+      }
+      
+      // Apply styling for other users' interactions
+      if (interactingUser) {
+        const borderWidth = interactionType === 'dragging' ? '3px' : '2px';
+        const shadowIntensity = interactionType === 'dragging' ? '80' : '40';
+        const shadowSize = interactionType === 'dragging' ? '16px' : '8px';
+        
+        style = {
+          ...style,
+          border: `${borderWidth} solid ${interactingUser.color}`,
+          boxShadow: `0 0 ${shadowSize} ${interactingUser.color}${shadowIntensity}`,
+          backgroundColor: '#ffffff'
+        };
+      }
+      
+      // Add special highlight for our own selection (takes priority over other users)
+      if (selectedNodes.includes(node.id)) {
+        style = {
+          ...style,
+          border: `3px solid ${userColor.current}`,
+          boxShadow: `0 0 12px ${userColor.current}60`,
+          backgroundColor: '#ffffff'
+        };
+      }
+      
+      return { ...node, style };
+    });
+  }, [nodes, userSelections, selectedNodes]);
+
   return (
     <div className="node-diagram-app" style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <header className="app-header" style={{ padding: '1rem', background: '#f5f5f5', borderBottom: '1px solid #ddd' }}>
@@ -354,7 +496,7 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
         <div className="users" style={{ marginTop: '0.5rem' }}>
           <strong>Connected Users:</strong>
           {connectedUsers.map((user, index) => (
-            <span key={index} style={{ marginLeft: '0.5rem', color: user.color }}>
+            <span key={index} style={{ marginLeft: '0.5rem', color: user.color, fontWeight: 'bold' }}>
               • {user.name}
             </span>
           ))}
@@ -363,12 +505,18 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
 
       <div style={{ flex: 1 }}>
         <ReactFlow
-          nodes={nodes}
+          nodes={getStyledNodes()}
           edges={edges}
           onNodesChange={handleNodesChange}
           onEdgesChange={handleEdgesChange}
           onConnect={onConnect}
+          onNodeDragStart={handleNodeDragStart}
+          onNodeDrag={handleNodeDrag}
+          onNodeDragStop={handleNodeDragStop}
+          onSelectionChange={handleSelectionChange}
           fitView
+          multiSelectionKeyCode="Shift"
+          deleteKeyCode="Delete"
         >
           <Controls />
           <MiniMap />
@@ -390,7 +538,18 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
         </div>
         
         <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
-          <strong>Instructions:</strong> Click "Add Node" to create nodes, drag to connect them, select and delete with backspace/delete key
+          <strong>Instructions:</strong> 
+          <ul style={{ margin: '0.5rem 0', paddingLeft: '1.5rem' }}>
+            <li>Click "Add Node" to create nodes</li>
+            <li>Drag nodes to move them (others see your user color border while dragging)</li>
+            <li>Click nodes to select them (others see your user color border when selected)</li>
+            <li>Hold Shift to select multiple nodes</li>
+            <li>Drag between nodes to connect them</li>
+            <li>Press Delete to remove selected items</li>
+          </ul>
+          <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.5rem' }}>
+            <strong>Visual Feedback:</strong> Node borders show user colors when interacting - thicker borders for dragging, thinner for selection
+          </div>
         </div>
       </div>
     </div>
