@@ -12,6 +12,8 @@ const PERSIST_INTERVAL = parseInt(process.env.PERSIST_INTERVAL) || 30000 // 30 s
 const CLEANUP_INTERVAL = parseInt(process.env.CLEANUP_INTERVAL) || 300000 // 5 minutes
 const ROOM_INACTIVE_THRESHOLD = parseInt(process.env.ROOM_INACTIVE_THRESHOLD) || 86400000 // 24 hours
 const BATCH_SIZE = parseInt(process.env.BATCH_SIZE) || 10 // Process 10 documents at a time
+const API_CALLBACK_INTERVAL = parseInt(process.env.API_CALLBACK_INTERVAL) || 60000 // 60 seconds
+const API_CALLBACK_ENABLED = process.env.API_CALLBACK_ENABLED === 'true' || true // Enable by default for development
 
 console.log('🔧 Starting y-redis persistence worker...')
 console.log(`🆔 Worker ID: ${WORKER_ID}`)
@@ -19,6 +21,8 @@ console.log(`🔗 Redis: ${REDIS_URL}`)
 console.log(`⏱️  Persist Interval: ${PERSIST_INTERVAL}ms`)
 console.log(`🧹 Cleanup Interval: ${CLEANUP_INTERVAL}ms`)
 console.log(`⏰ Room Inactive Threshold: ${ROOM_INACTIVE_THRESHOLD}ms (${Math.round(ROOM_INACTIVE_THRESHOLD / 3600000)}h)`)
+console.log(`🔔 API Callback Interval: ${API_CALLBACK_INTERVAL}ms`)
+console.log(`🔔 API Callback Enabled: ${API_CALLBACK_ENABLED}`)
 
 // Create Redis persistence and storage using database isolation
 const redisPersistence = new RedisPersistence({
@@ -34,6 +38,99 @@ let isRunning = true
 
 // Keep track of known rooms (in a real implementation, this would come from Redis)
 const knownRooms = new Set()
+
+/**
+ * Extract JSON data from Yjs document for API callbacks
+ * @param {string} roomName 
+ * @param {Y.Doc} doc 
+ * @returns {Object} JSON representation of the document data
+ */
+function extractDocumentJson(roomName, doc) {
+  try {
+    const jsonData = {
+      roomName,
+      timestamp: new Date().toISOString(),
+      data: {}
+    }
+
+    // Extract different types of shared data structures
+    const sharedTypes = doc.share || new Map()
+    
+    // Convert Y.Doc to JSON - this extracts all shared types
+    const fullJson = doc.toJSON()
+    jsonData.data = fullJson
+
+    // For node diagrams specifically, try to extract nodes and edges arrays
+    if (doc.getArray && typeof doc.getArray === 'function') {
+      try {
+        const nodesArray = doc.getArray('nodes')
+        const edgesArray = doc.getArray('edges')
+        
+        if (nodesArray) {
+          jsonData.data.nodes = nodesArray.toArray()
+        }
+        
+        if (edgesArray) {
+          jsonData.data.edges = edgesArray.toArray()
+        }
+      } catch (arrayError) {
+        console.debug(`🔍 Could not extract arrays from room ${roomName}:`, arrayError.message)
+      }
+    }
+
+    // For text editors, try to extract text content
+    if (doc.getText && typeof doc.getText === 'function') {
+      try {
+        const textContent = doc.getText('text')
+        if (textContent) {
+          jsonData.data.text = textContent.toString()
+        }
+      } catch (textError) {
+        console.debug(`🔍 Could not extract text from room ${roomName}:`, textError.message)
+      }
+    }
+
+    // Add metadata about the document
+    jsonData.metadata = {
+      clientCount: doc.clientID ? 1 : 0,
+      hasContent: Object.keys(jsonData.data).length > 0,
+      dataSize: JSON.stringify(jsonData.data).length
+    }
+
+    return jsonData
+  } catch (error) {
+    console.error(`❌ Error extracting JSON from room ${roomName}:`, error)
+    return {
+      roomName,
+      timestamp: new Date().toISOString(),
+      error: error.message,
+      data: {},
+      metadata: { hasContent: false, dataSize: 0 }
+    }
+  }
+}
+
+/**
+ * Send room data to external API (currently just logs)
+ * @param {Object} roomData - JSON data extracted from Yjs document
+ */
+async function sendApiCallback(roomData) {
+  try {
+    console.log('🔔 API CALLBACK - Room Data:', JSON.stringify(roomData, null, 2))
+    
+    // In a real implementation, you would make an HTTP request here:
+    // const response = await fetch(process.env.API_CALLBACK_URL, {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify(roomData)
+    // })
+    
+    return { success: true }
+  } catch (error) {
+    console.error(`❌ Error sending API callback for room ${roomData.roomName}:`, error)
+    return { success: false, error: error.message }
+  }
+}
 
 /**
  * Register room activity (called when users connect/disconnect)
@@ -395,6 +492,21 @@ async function persistRoomData(roomName) {
     // Persist to permanent storage (S3, Memory, etc.)
     await storage.persistDoc(roomName, 'default', doc)
     
+    // Extract JSON data and send API callback
+    if (API_CALLBACK_ENABLED) {
+      try {
+        const jsonData = extractDocumentJson(roomName, doc)
+        if (jsonData.metadata.hasContent) {
+          await sendApiCallback(jsonData)
+          console.info(`🔔 API callback sent for room: ${roomName}`)
+        } else {
+          console.debug(`🔍 Skipping API callback for empty room: ${roomName}`)
+        }
+      } catch (callbackError) {
+        console.error(`❌ Error in API callback for room ${roomName}:`, callbackError)
+      }
+    }
+    
     console.info(`✅ Successfully persisted room: ${roomName}`)
     
     // Check if room has active connections by looking at activity
@@ -480,6 +592,64 @@ async function persistDocument(roomName, doc) {
 }
 
 /**
+ * API callback loop - periodically send updates for all active rooms
+ */
+async function apiCallbackLoop() {
+  if (!API_CALLBACK_ENABLED) {
+    console.info('🔔 API callback disabled, skipping callback loop')
+    return
+  }
+
+  console.info('🔔 Starting API callback loop...')
+  
+  while (isRunning) {
+    try {
+      await delay(API_CALLBACK_INTERVAL)
+      
+      if (!isRunning) break
+      
+      console.info('🔔 Running periodic API callback...')
+      
+      // Get all active rooms with documents
+      const activeRooms = Array.from(redisPersistence.docs.keys())
+      
+      if (activeRooms.length === 0) {
+        console.debug('🔍 No active rooms for API callback')
+        continue
+      }
+      
+      console.info(`🔔 Processing API callbacks for ${activeRooms.length} active rooms`)
+      
+      for (const roomName of activeRooms) {
+        try {
+          const doc = redisPersistence.docs.get(roomName)
+          if (doc && doc.store) {
+            const jsonData = extractDocumentJson(roomName, doc)
+            if (jsonData.metadata.hasContent) {
+              await sendApiCallback(jsonData)
+              console.debug(`🔔 Periodic API callback sent for room: ${roomName}`)
+            }
+          }
+        } catch (roomError) {
+          console.error(`❌ Error processing API callback for room ${roomName}:`, roomError)
+        }
+        
+        // Small delay between room callbacks to avoid overwhelming the API
+        await delay(100)
+      }
+      
+      console.info(`🔔 Completed periodic API callbacks for ${activeRooms.length} rooms`)
+      
+    } catch (error) {
+      console.error('❌ Error in API callback loop:', error)
+      await delay(5000) // Wait 5 seconds before retrying
+    }
+  }
+  
+  console.info('🔔 API callback loop stopped')
+}
+
+/**
  * Graceful shutdown
  */
 async function shutdown() {
@@ -525,7 +695,7 @@ console.log('🧹 Worker will cleanup inactive rooms based on activity')
 console.log(`💾 Storage backend: ${process.env.STORAGE_TYPE || 'memory'}`)
 console.log(`📋 Worker queue coordination: y:worker stream`)
 
-// Start both worker loops
+// Start all worker loops
 Promise.all([
   workerLoop().catch(error => {
     console.error('❌ Fatal error in worker loop:', error)
@@ -533,6 +703,10 @@ Promise.all([
   }),
   cleanupLoop().catch(error => {
     console.error('❌ Fatal error in cleanup loop:', error)
+    shutdown()
+  }),
+  apiCallbackLoop().catch(error => {
+    console.error('❌ Fatal error in API callback loop:', error)
     shutdown()
   })
 ])

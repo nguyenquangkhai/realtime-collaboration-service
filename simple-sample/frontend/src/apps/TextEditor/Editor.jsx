@@ -217,15 +217,15 @@ const Editor = forwardRef(
         }
       });
 
-      // // Handle text changes
-      // quill.on(Quill.events.TEXT_CHANGE, (...args) => {
-      //   onTextChangeRef.current?.(...args);
-      // });
+      // Handle text changes
+      quill.on(Quill.events.TEXT_CHANGE, (...args) => {
+        onTextChangeRef.current?.(...args);
+      });
 
-      // // Handle selection changes
-      // quill.on(Quill.events.SELECTION_CHANGE, (...args) => {
-      //   onSelectionChangeRef.current?.(...args);
-      // });
+      // Handle selection changes
+      quill.on(Quill.events.SELECTION_CHANGE, (...args) => {
+        onSelectionChangeRef.current?.(...args);
+      });
 
       // Cleanup function
       return () => {

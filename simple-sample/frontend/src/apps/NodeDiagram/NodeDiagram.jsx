@@ -22,7 +22,7 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
   const [username, setUsername] = useState('');
   const [connectedUsers, setConnectedUsers] = useState([]);
   const [selectedNodes, setSelectedNodes] = useState([]);
-  const [userSelections, setUserSelections] = useState(new Map());
+  const [userSelections, setUserSelections] = useState({});
 
   // Yjs refs
   const ydocRef = useRef(null);
@@ -105,7 +105,7 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
     // Listen to awareness changes for user list, selections, and drag states
     awareness.on('change', () => {
       const users = [];
-      const interactions = new Map();
+      const interactions = {};
       
       awareness.getStates().forEach((state, clientId) => {
         if (state.user) {
@@ -119,16 +119,16 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
               draggedNode: state.draggedNode || null
             };
             
-            // Only add to map if user has any interactions
+            // Only add to object if user has any interactions
             if (userInteraction.selectedNodes.length > 0 || userInteraction.draggedNode) {
-              interactions.set(clientId, userInteraction);
+              interactions[clientId] = userInteraction;
             }
           }
         }
       });
       
       setConnectedUsers(users);
-      setUserSelections(interactions);
+      setUserSelections({...interactions});
     });
 
     // Listen to nodes changes from Yjs
@@ -407,7 +407,7 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
       let interactionType = null;
       
       // Check if this node is being interacted with by any other user (not ourselves)
-      for (const [clientId, interaction] of userSelections) {
+      for (const [clientId, interaction] of Object.entries(userSelections)) {
         // Check if user is dragging this node
         if (interaction.draggedNode === node.id) {
           interactingUser = interaction.user;
@@ -437,7 +437,7 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
       }
       
       // Add special highlight for our own selection (takes priority over other users)
-      if (selectedNodes.includes(node.id)) {
+      if (selectedNodes.includes(node.id) && userColor.current) {
         style = {
           ...style,
           border: `3px solid ${userColor.current}`,
