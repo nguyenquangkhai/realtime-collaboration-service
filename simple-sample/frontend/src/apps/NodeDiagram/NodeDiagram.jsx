@@ -110,17 +110,25 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
 
     // Listen to nodes changes from Yjs
     const updateNodesFromYjs = () => {
-      if (isUpdatingFromYjs.current) return;
+      if (isUpdatingFromYjs.current) {
+        console.log('Skipping nodes update - currently updating from Yjs');
+        return;
+      }
       
       const yNodesArray = ynodesRef.current?.toArray() || [];
+      console.log('Updating nodes from Yjs:', yNodesArray.length, 'nodes');
       setNodes(yNodesArray);
     };
 
     // Listen to edges changes from Yjs
     const updateEdgesFromYjs = () => {
-      if (isUpdatingFromYjs.current) return;
+      if (isUpdatingFromYjs.current) {
+        console.log('Skipping edges update - currently updating from Yjs');
+        return;
+      }
       
       const yEdgesArray = yedgesRef.current?.toArray() || [];
+      console.log('Updating edges from Yjs:', yEdgesArray.length, 'edges');
       setEdges(yEdgesArray);
     };
 
@@ -142,12 +150,14 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
 
   // Handle nodes changes and sync to Yjs
   const handleNodesChange = useCallback((changes) => {
+    console.log('handleNodesChange called with changes:', changes);
     const newNodes = applyNodeChanges(changes, nodes);
     
     // Check if this is a delete operation
     const deletedNodes = changes.filter(change => change.type === 'remove');
     
     if (deletedNodes.length > 0 && ynodesRef.current) {
+      console.log('Deleting nodes from Yjs:', deletedNodes);
       isUpdatingFromYjs.current = true;
       
       // Remove deleted nodes from Yjs array
@@ -166,12 +176,14 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
 
   // Handle edges changes and sync to Yjs
   const handleEdgesChange = useCallback((changes) => {
+    console.log('handleEdgesChange called with changes:', changes);
     const newEdges = applyEdgeChanges(changes, edges);
     
     // Check if this is a delete operation
     const deletedEdges = changes.filter(change => change.type === 'remove');
     
     if (deletedEdges.length > 0 && yedgesRef.current) {
+      console.log('Deleting edges from Yjs:', deletedEdges);
       isUpdatingFromYjs.current = true;
       
       // Remove deleted edges from Yjs array
@@ -196,9 +208,15 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
     };
     
     if (yedgesRef.current) {
-      isUpdatingFromYjs.current = true;
+      console.log('Creating new edge:', newEdge);
       yedgesRef.current.push([newEdge]);
-      isUpdatingFromYjs.current = false;
+      
+      // Force immediate update from Yjs to React state
+      setTimeout(() => {
+        const currentEdges = yedgesRef.current?.toArray() || [];
+        console.log('Force updating React state with', currentEdges.length, 'edges');
+        setEdges([...currentEdges]);
+      }, 0);
     }
   }, []);
 
@@ -233,14 +251,20 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
     console.log('Creating new node:', newNode);
     
     try {
-      isUpdatingFromYjs.current = true;
+      // Don't set isUpdatingFromYjs flag when adding nodes - let Yjs observer update React state
       ynodesRef.current.push([newNode]);
-      console.log('Node added to Yjs array');
+      console.log('Node added to Yjs array, current length:', ynodesRef.current.length);
+      
+      // Force immediate update from Yjs to React state
+      setTimeout(() => {
+        const currentNodes = ynodesRef.current?.toArray() || [];
+        console.log('Force updating React state with', currentNodes.length, 'nodes');
+        setNodes([...currentNodes]);
+      }, 0);
+      
     } catch (error) {
       console.error('Error adding node:', error);
       alert('Error adding node: ' + error.message);
-    } finally {
-      isUpdatingFromYjs.current = false;
     }
   }, [username, isConnected]);
 
@@ -264,15 +288,23 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
     }
 
     try {
-      isUpdatingFromYjs.current = true;
+      // Don't set isUpdatingFromYjs flag - let Yjs observer update React state
       ynodesRef.current.delete(0, ynodesRef.current.length);
       yedgesRef.current.delete(0, yedgesRef.current.length);
       console.log('All nodes and edges cleared');
+      
+      // Force immediate update from Yjs to React state
+      setTimeout(() => {
+        const currentNodes = ynodesRef.current?.toArray() || [];
+        const currentEdges = yedgesRef.current?.toArray() || [];
+        console.log('Force updating React state - nodes:', currentNodes.length, 'edges:', currentEdges.length);
+        setNodes([...currentNodes]);
+        setEdges([...currentEdges]);
+      }, 0);
+      
     } catch (error) {
       console.error('Error clearing nodes:', error);
       alert('Error clearing nodes: ' + error.message);
-    } finally {
-      isUpdatingFromYjs.current = false;
     }
   }, [isConnected]);
 
@@ -348,6 +380,9 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
         <div style={{ display: 'flex', gap: '2rem' }}>
           <div>
             <h3>Nodes: {nodes.length}</h3>
+            <div style={{ fontSize: '0.8rem', color: '#666' }}>
+              {nodes.length > 0 && `Latest: ${nodes[nodes.length - 1]?.data?.label || 'N/A'}`}
+            </div>
           </div>
           <div>
             <h3>Edges: {edges.length}</h3>
