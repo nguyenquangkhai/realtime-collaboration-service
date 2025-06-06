@@ -3,6 +3,8 @@ import AppSelector from './components/AppSelector';
 import TextEditor from './apps/TextEditor/TextEditor';
 import NodeDiagram from './apps/NodeDiagram/NodeDiagram';
 import Table from './apps/Table/Table';
+import '@material/web/button/filled-tonal-button.js';
+import '@material/web/icon/icon.js';
 import './styles/material-theme.css';
 
 const App = () => {
@@ -71,9 +73,10 @@ const App = () => {
     <div className="app">
       {currentApp && (
         <div className="back-button-container">
-          <button className="back-button" onClick={handleBackToHome}>
-            ← Back to Home
-          </button>
+          <md-filled-tonal-button className="back-button" onClick={handleBackToHome}>
+            <md-icon slot="icon">arrow_back</md-icon>
+            Back to Home
+          </md-filled-tonal-button>
         </div>
       )}
       
@@ -93,21 +96,12 @@ const App = () => {
         }
 
         .back-button {
-          background-color: var(--md-sys-color-secondary);
-          color: var(--md-sys-color-on-secondary);
-          border: none;
-          padding: 10px 24px;
-          border-radius: 20px;
-          cursor: pointer;
-          font-size: var(--md-sys-typescale-label-large-size);
-          font-weight: var(--md-sys-typescale-label-large-weight);
-          font-family: var(--md-sys-typescale-label-large-font);
-          transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
-          box-shadow: var(--md-sys-elevation-level1);
-        }
-
-        .back-button:hover {
-          box-shadow: var(--md-sys-elevation-level2);
+          --md-filled-tonal-button-container-color: var(--md-sys-color-secondary-container);
+          --md-filled-tonal-button-label-text-color: var(--md-sys-color-on-secondary-container);
+          --md-filled-tonal-button-focus-label-text-color: var(--md-sys-color-on-secondary-container);
+          --md-filled-tonal-button-hover-label-text-color: var(--md-sys-color-on-secondary-container);
+          --md-filled-tonal-button-pressed-label-text-color: var(--md-sys-color-on-secondary-container);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         }
       `}</style>
     </div>

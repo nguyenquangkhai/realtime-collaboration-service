@@ -1,84 +1,15 @@
 .table-app {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 2rem;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  padding: 1rem;
+  font-family: var(--md-font-family, 'Roboto', sans-serif);
+  background: var(--md-surface, #fef7ff);
+  min-height: 100vh;
 }
 
-.app-header {
-  text-align: center;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid #e9ecef;
-}
+/* Header styles moved to shared AppHeader component */
 
-.app-header h1 {
-  font-size: 2.5rem;
-  margin-bottom: 0.5rem;
-  color: #333;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.app-header p {
-  font-size: 1.1rem;
-  color: #666;
-  margin: 0;
-}
-
-.room-selector {
-  background: #f8f9fa;
-  padding: 1.5rem;
-  border-radius: 8px;
-  margin-bottom: 2rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  align-items: center;
-}
-
-.room-selector label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  color: #333;
-  font-weight: 500;
-}
-
-.room-selector input {
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-  min-width: 200px;
-}
-
-.room-selector input:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.connection-status {
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  font-weight: 500;
-  font-size: 0.9rem;
-}
-
-.connection-status.connected {
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-}
-
-.connection-status.disconnected {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-}
+/* Room selector and connection status styles moved to shared AppHeader component */
 
 #table-users {
   font-size: 0.9rem;
@@ -87,61 +18,68 @@
 }
 
 .table-container {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: var(--md-surface-container-low, #f7f2fa);
+  border-radius: var(--md-border-radius-l, 16px);
   padding: 1rem;
   margin-bottom: 2rem;
   overflow-x: auto;
+  border: 1px solid var(--md-outline-variant, #c4c7c5);
+  box-shadow: var(--md-elevation-1, 0 1px 2px rgba(0,0,0,0.05));
 }
 
 .table-stats {
-  background: #f8f9fa;
-  padding: 1rem;
-  border-radius: 8px;
+  background: var(--md-surface-container, #f3edf7);
+  padding: 1.5rem;
+  border-radius: var(--md-border-radius-l, 16px);
   margin-bottom: 2rem;
+  border: 1px solid var(--md-outline-variant, #c4c7c5);
 }
 
 .stats-section h3 {
   margin: 0 0 1rem 0;
-  color: #333;
-  font-size: 1.1rem;
+  color: var(--md-on-surface, #1c1b1f);
+  font-size: var(--md-font-size-title-medium, 1rem);
+  font-weight: var(--md-font-weight-medium, 500);
 }
 
 .stats-section p {
   margin: 0.25rem 0;
-  color: #666;
-  font-size: 0.9rem;
+  color: var(--md-on-surface-variant, #49454f);
+  font-size: var(--md-font-size-body-medium, 0.875rem);
 }
 
 .instructions {
-  background: #e3f2fd;
+  background: var(--md-tertiary-container, #ffd8e4);
   padding: 2rem;
-  border-radius: 8px;
+  border-radius: var(--md-border-radius-l, 16px);
   margin-top: 2rem;
+  border: 1px solid var(--md-outline-variant, #c4c7c5);
 }
 
 .instructions h3 {
   margin: 0 0 1rem 0;
-  color: #1565c0;
-  font-size: 1.3rem;
+  color: var(--md-on-tertiary-container, #31111d);
+  font-size: var(--md-font-size-title-medium, 1rem);
+  font-weight: var(--md-font-weight-medium, 500);
 }
 
 .instructions h4 {
   margin: 1.5rem 0 0.5rem 0;
-  color: #1565c0;
-  font-size: 1.1rem;
+  color: var(--md-on-tertiary-container, #31111d);
+  font-size: var(--md-font-size-title-small, 0.875rem);
+  font-weight: var(--md-font-weight-medium, 500);
 }
 
 .instructions ol {
   margin: 0;
   padding-left: 1.5rem;
-  color: #333;
+  color: var(--md-on-tertiary-container, #31111d);
+  font-size: var(--md-font-size-body-medium, 0.875rem);
+  line-height: 1.5;
 }
 
 .instructions ol li {
   margin: 0.5rem 0;
-  line-height: 1.5;
 }
 
 .keyboard-shortcuts {
@@ -156,8 +94,8 @@
 
 .keyboard-shortcuts li {
   padding: 0.5rem 0;
-  border-bottom: 1px solid rgba(21, 101, 192, 0.1);
-  color: #333;
+  border-bottom: 1px solid var(--md-outline-variant, rgba(196, 199, 197, 0.3));
+  color: var(--md-on-tertiary-container, #31111d);
 }
 
 .keyboard-shortcuts li:last-child {
@@ -165,9 +103,10 @@
 }
 
 .keyboard-shortcuts strong {
-  color: #1565c0;
+  color: var(--md-tertiary, #7d5260);
   min-width: 120px;
   display: inline-block;
+  font-weight: var(--md-font-weight-medium, 500);
 }
 
 @media (max-width: 768px) {

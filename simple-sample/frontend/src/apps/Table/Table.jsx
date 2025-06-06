@@ -1,14 +1,26 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import DatasheetEditor from './DatasheetEditor';
+import AppHeader from '../../components/AppHeader';
+import { useCollaborationUsers } from './hooks/useCollaborationUsers';
+import '@material/web/textfield/outlined-text-field.js';
+import '@material/web/labs/badge/badge.js';
 import './Table.css';
 
 const Table = ({ roomName: initialRoomName = 'table-collaborative-room' }) => {
   const [roomName, setRoomName] = useState(initialRoomName);
+  const [username, setUsername] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [currentData, setCurrentData] = useState([]);
+  
+  // Track connected users
+  const { connectedUsers } = useCollaborationUsers();
 
   const handleRoomChange = (e) => {
     setRoomName(e.target.value);
+  };
+
+  const handleUsernameChange = (e) => {
+    setUsername(e.target.value);
   };
 
   const handleConnectionChange = useCallback((connected) => {
@@ -21,30 +33,18 @@ const Table = ({ roomName: initialRoomName = 'table-collaborative-room' }) => {
 
   return (
     <div className="table-app">
-      <header className="app-header">
-        <h1>📋 Collaborative Table Editor</h1>
-        <p>Built with Yjs + React-Datasheet - Real-time spreadsheet collaboration!</p>
-      </header>
-
-      <div className="room-selector">
-        <label>
-          Room Name: 
-          <input
-            type="text"
-            value={roomName}
-            onChange={handleRoomChange}
-            placeholder="Enter room name"
-          />
-        </label>
-        <label>
-          Your username:
-          <input id="table-username" type="text" />
-        </label>
-        <div id="table-users"></div>
-        <span className={`connection-status ${isConnected ? 'connected' : 'disconnected'}`}>
-          {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
-        </span>
-      </div>
+      <AppHeader
+        icon="📋"
+        title="Collaborative Table Editor"
+        subtitle="Built with Yjs + React-Datasheet - Real-time spreadsheet collaboration!"
+        roomName={roomName}
+        onRoomChange={handleRoomChange}
+        username={username}
+        onUsernameChange={handleUsernameChange}
+        isConnected={isConnected}
+        connectedUsers={connectedUsers}
+        showUsers={true}
+      />
 
       <div className="table-container">
         <DatasheetEditor
@@ -53,6 +53,8 @@ const Table = ({ roomName: initialRoomName = 'table-collaborative-room' }) => {
           onConnectionChange={handleConnectionChange}
           onDataChange={handleDataChange}
         />
+        {/* Hidden div for Yjs to write table user information */}
+        <div id="table-users" style={{ display: 'none' }}></div>
       </div>
 
       <div className="table-stats">

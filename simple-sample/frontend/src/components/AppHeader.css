@@ -1,0 +1,141 @@
+.app-header {
+  text-align: center;
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  padding: 2rem;
+  border-radius: 16px;
+  margin: 4rem 0 2rem 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.app-header h1 {
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--md-sys-color-on-primary);
+  line-height: 1.2;
+}
+
+.app-header p {
+  font-size: 1rem;
+  color: var(--md-sys-color-on-primary);
+  margin: 0 0 1.5rem 0;
+  font-weight: 400;
+  opacity: 0.9;
+}
+
+.room-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 1.5rem;
+  align-items: center;
+  margin-top: 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1.5rem;
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.room-controls md-outlined-text-field {
+  --md-outlined-text-field-container-color: rgba(255, 255, 255, 0.2);
+  --md-outlined-text-field-outline-color: rgba(255, 255, 255, 0.3);
+  --md-outlined-text-field-focus-outline-color: rgba(255, 255, 255, 0.6);
+  --md-outlined-text-field-label-text-color: var(--md-sys-color-on-primary);
+  --md-outlined-text-field-input-text-color: var(--md-sys-color-on-primary);
+  --md-outlined-text-field-supporting-text-color: rgba(255, 255, 255, 0.7);
+  min-width: 200px;
+}
+
+.connection-control {
+  justify-self: end;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.connection-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--md-sys-color-on-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: default;
+}
+
+.connection-icon {
+  font-size: 1.2rem;
+  display: inline-block;
+  margin-right: 0.25rem;
+}
+
+.connection-switch {
+  --md-switch-track-width: 52px;
+  --md-switch-track-height: 32px;
+}
+
+/* Force switch colors with high priority CSS selectors */
+md-switch.connection-switch.connected {
+  --md-switch-selected-track-color: #4caf50 !important;
+  --md-switch-selected-handle-color: #ffffff !important;
+  --md-switch-selected-pressed-handle-color: #ffffff !important;
+  --md-switch-selected-hover-handle-color: #ffffff !important;
+  --md-switch-selected-focus-handle-color: #ffffff !important;
+}
+
+md-switch.connection-switch.disconnected {
+  --md-switch-unselected-track-color: #f44336 !important;
+  --md-switch-unselected-handle-color: #ffffff !important;
+  --md-switch-unselected-pressed-handle-color: #ffffff !important;
+  --md-switch-unselected-hover-handle-color: #ffffff !important;
+  --md-switch-unselected-focus-handle-color: #ffffff !important;
+}
+
+/* Additional override to force colors */
+md-switch.connection-switch::part(track) {
+  background-color: var(--md-switch-selected-track-color) !important;
+}
+
+.users {
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: var(--md-sys-color-on-primary);
+  opacity: 0.9;
+}
+
+.users strong {
+  color: var(--md-sys-color-on-primary);
+  font-weight: 500;
+}
+
+.user-item {
+  margin-left: 0.5rem;
+  font-weight: 600;
+  color: var(--md-sys-color-on-primary);
+  opacity: 0.95;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .app-header {
+    margin: 4rem 0.5rem 1rem 0.5rem;
+    padding: 1.5rem;
+  }
+
+  .app-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .room-controls {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .connection-control {
+    justify-self: center;
+  }
+} 

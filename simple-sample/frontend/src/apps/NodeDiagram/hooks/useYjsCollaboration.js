@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
-import DoUsername from 'do_username';
+import { generateRandomUser, userColors } from '../../../utils/userUtils';
 
 /**
  * Custom hook for Yjs collaboration in NodeDiagram
@@ -20,11 +20,7 @@ export const useYjsCollaboration = (roomName) => {
   const awarenessRef = useRef(null);
   const userColor = useRef(null);
 
-  // User colors for collaboration
-  const userColors = [
-    '#30bced', '#6eeb83', '#ffbc42', '#ecd444', 
-    '#ee6352', '#9ac2c9', '#8acb88', '#1be7ff'
-  ];
+  // User colors imported from shared utilities
 
   // Update username and awareness
   const updateUsername = (newUsername) => {
@@ -47,11 +43,10 @@ export const useYjsCollaboration = (roomName) => {
 
   // Initialize Yjs collaboration
   useEffect(() => {
-    // Generate random username and assign color
-    const randomUsername = DoUsername.generate(15);
-    const assignedColor = userColors[Math.floor(Math.random() * userColors.length)];
-    setUsername(randomUsername);
-    userColor.current = assignedColor;
+    // Generate random username and assign color using shared utilities
+    const randomUser = generateRandomUser(15);
+    setUsername(randomUser.name);
+    userColor.current = randomUser.color;
 
     // Create Yjs document
     const ydoc = new Y.Doc();
@@ -75,8 +70,8 @@ export const useYjsCollaboration = (roomName) => {
     awarenessRef.current = awareness;
     
     awareness.setLocalStateField('user', { 
-      name: randomUsername, 
-      color: assignedColor
+      name: randomUser.name, 
+      color: randomUser.color
     });
 
     // Handle connection status

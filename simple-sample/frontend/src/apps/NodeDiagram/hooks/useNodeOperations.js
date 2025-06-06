@@ -186,6 +186,65 @@ export const useNodeOperations = (
     }
   }, [username, isConnected, ynodesRef, setNodes]);
 
+  // Remove a specific node
+  const removeNode = useCallback((nodeId) => {
+    console.log('Remove node called for:', nodeId, 'connected:', isConnected);
+    
+    if (!isConnected) {
+      alert('Please wait for connection to be established');
+      return;
+    }
+    
+    if (!ynodesRef.current || !yedgesRef.current) {
+      console.warn('Yjs arrays not ready yet');
+      alert('Collaboration system not ready yet, please try again');
+      return;
+    }
+
+    try {
+      // Find and remove the node
+      const nodes = ynodesRef.current.toArray();
+      const nodeIndex = nodes.findIndex(node => node.id === nodeId);
+      
+      if (nodeIndex !== -1) {
+        ynodesRef.current.delete(nodeIndex, 1);
+        console.log('Node removed from Yjs array');
+      }
+      
+      // Remove all edges connected to this node
+      const edges = yedgesRef.current.toArray();
+      const edgesToRemove = [];
+      
+      edges.forEach((edge, index) => {
+        if (edge.source === nodeId || edge.target === nodeId) {
+          edgesToRemove.unshift(index); // Add to front so we can delete in reverse order
+        }
+      });
+      
+      // Delete edges in reverse order to maintain correct indices
+      edgesToRemove.forEach(index => {
+        yedgesRef.current.delete(index, 1);
+      });
+      
+      if (edgesToRemove.length > 0) {
+        console.log('Removed', edgesToRemove.length, 'connected edges');
+      }
+      
+      // Force immediate update from Yjs to React state
+      setTimeout(() => {
+        const currentNodes = ynodesRef.current?.toArray() || [];
+        const currentEdges = yedgesRef.current?.toArray() || [];
+        console.log('Force updating React state after node removal - nodes:', currentNodes.length, 'edges:', currentEdges.length);
+        setNodes([...currentNodes]);
+        setEdges([...currentEdges]);
+      }, 0);
+      
+    } catch (error) {
+      console.error('Error removing node:', error);
+      alert('Error removing node: ' + error.message);
+    }
+  }, [isConnected, ynodesRef, yedgesRef, setNodes, setEdges]);
+
   // Clear all nodes
   const clearNodes = useCallback(() => {
     console.log('Clear nodes clicked, connected:', isConnected, 'ynodesRef:', ynodesRef.current, 'yedgesRef:', yedgesRef.current);
@@ -252,6 +311,7 @@ export const useNodeOperations = (
     handleEdgesChange,
     onConnect,
     addNode,
+    removeNode,
     clearNodes,
     handleNodeDragStop
   };

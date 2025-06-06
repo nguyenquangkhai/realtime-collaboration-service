@@ -1,5 +1,11 @@
 import React, { useRef, useState, useEffect } from 'react';
 import Editor from './Editor';
+import AppHeader from '../../components/AppHeader';
+import { useCollaborationUsers } from './hooks/useCollaborationUsers';
+import '@material/web/textfield/outlined-text-field.js';
+import '@material/web/button/filled-button.js';
+import '@material/web/checkbox/checkbox.js';
+import '@material/web/labs/badge/badge.js';
 import './TextEditor.css';
 
 const TextEditor = ({ roomName: initialRoomName = 'text-collaborative-room' }) => {
@@ -7,13 +13,21 @@ const TextEditor = ({ roomName: initialRoomName = 'text-collaborative-room' }) =
   const [lastChange, setLastChange] = useState();
   const [readOnly, setReadOnly] = useState(false);
   const [roomName, setRoomName] = useState(initialRoomName);
+  const [username, setUsername] = useState('');
   const [isConnected, setIsConnected] = useState(false);
 
   // Use a ref to access the quill instance directly
   const quillRef = useRef();
+  
+  // Track connected users
+  const { connectedUsers } = useCollaborationUsers();
 
   const handleRoomChange = (e) => {
     setRoomName(e.target.value);
+  };
+
+  const handleUsernameChange = (e) => {
+    setUsername(e.target.value);
   };
 
   const handleConnectionChange = (connected) => {
@@ -22,30 +36,18 @@ const TextEditor = ({ roomName: initialRoomName = 'text-collaborative-room' }) =
 
   return (
     <div className="text-editor-app">
-      <header className="app-header">
-        <h1>📝 Collaborative Text Editor</h1>
-        <p>Built with Yjs + Quill - Real-time text collaboration!</p>
-      </header>
-
-      <div className="room-selector">
-        <label>
-          Room Name: 
-          <input
-            type="text"
-            value={roomName}
-            onChange={handleRoomChange}
-            placeholder="Enter room name"
-          />
-        </label>
-        <label>
-          Your username:
-          <input id="username" type="text" />
-        </label>
-        <div id="users"></div>
-        <span className={`connection-status ${isConnected ? 'connected' : 'disconnected'}`}>
-          {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
-        </span>
-      </div>
+      <AppHeader
+        icon="📝"
+        title="Collaborative Text Editor"
+        subtitle="Built with Yjs + Quill - Real-time text collaboration!"
+        roomName={roomName}
+        onRoomChange={handleRoomChange}
+        username={username}
+        onUsernameChange={handleUsernameChange}
+        isConnected={isConnected}
+        connectedUsers={connectedUsers}
+        showUsers={true}
+      />
 
       <div className="editor-container">
         <Editor
@@ -57,27 +59,27 @@ const TextEditor = ({ roomName: initialRoomName = 'text-collaborative-room' }) =
           onTextChange={setLastChange}
           onConnectionChange={handleConnectionChange}
         />
+        {/* Hidden div for Yjs to write user information */}
+        <div id="users" style={{ display: 'none' }}></div>
       </div>
 
       <div className="controls">
-        <label>
-          Read Only:{' '}
-          <input
-            type="checkbox"
+        <label className="checkbox-label">
+          Read Only:
+          <md-checkbox
             checked={readOnly}
             onChange={(e) => setReadOnly(e.target.checked)}
           />
         </label>
-        <button
+        <md-filled-button
           className="controls-button"
-          type="button"
           onClick={() => {
             const length = quillRef.current?.getLength();
             alert(`Content length: ${length} characters`);
           }}
         >
           Get Content Length
-        </button>
+        </md-filled-button>
       </div>
 
       <div className="info-panel">

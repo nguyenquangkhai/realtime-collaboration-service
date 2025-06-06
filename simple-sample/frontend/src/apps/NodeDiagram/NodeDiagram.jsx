@@ -10,9 +10,10 @@ import 'reactflow/dist/style.css';
 import { useYjsCollaboration } from './hooks/useYjsCollaboration';
 import { useNodeOperations } from './hooks/useNodeOperations';
 import { getStyledNodes } from './utils/nodeStyleUtils';
-import NodeDiagramHeader from './components/NodeDiagramHeader';
+import AppHeader from '../../components/AppHeader';
 import NodeDiagramControls from './components/NodeDiagramControls';
 import NodeDiagramInfoPanel from './components/NodeDiagramInfoPanel';
+import NodeContextMenu from './components/NodeContextMenu';
 import './NodeDiagram.css';
 
 const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' }) => {
@@ -20,6 +21,7 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
   const [edges, setEdges] = useEdgesState([]);
   const [roomName, setRoomName] = useState(initialRoomName);
   const [selectedNodes, setSelectedNodes] = useState([]);
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, nodeId: null, nodeName: '' });
 
   // Use Yjs collaboration hook
   const {
@@ -40,6 +42,7 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
     handleEdgesChange,
     onConnect,
     addNode,
+    removeNode,
     clearNodes,
     handleNodeDragStop
   } = useNodeOperations(
@@ -99,18 +102,49 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
     setAwarenessField('selectedNodes', selectedNodeIds);
   }, [setAwarenessField]);
 
+  // Handle right-click on node
+  const handleNodeContextMenu = useCallback((event, node) => {
+    event.preventDefault();
+    console.log('Context menu for node:', node.id);
+    
+    setContextMenu({
+      visible: true,
+      x: event.clientX,
+      y: event.clientY,
+      nodeId: node.id,
+      nodeName: node.data.label || `Node ${node.id}`
+    });
+  }, []);
+
+  // Close context menu
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu({ visible: false, x: 0, y: 0, nodeId: null, nodeName: '' });
+  }, []);
+
+  // Handle remove node from context menu
+  const handleRemoveNodeFromMenu = useCallback(() => {
+    if (contextMenu.nodeId) {
+      removeNode(contextMenu.nodeId);
+    }
+  }, [contextMenu.nodeId, removeNode]);
+
   // Get styled nodes using utility function
   const styledNodes = getStyledNodes(nodes, userSelections, selectedNodes, userColor);
 
   return (
     <div className="node-diagram-app">
-      <NodeDiagramHeader
+      <AppHeader
+        icon="🔗"
+        title="Collaborative Node Diagram"
+        subtitle="Built with Yjs + React Flow - Real-time node collaboration!"
         roomName={roomName}
         onRoomChange={handleRoomChange}
         username={username}
         onUsernameChange={handleUsernameChange}
         isConnected={isConnected}
         connectedUsers={connectedUsers}
+        showUsers={true}
+        generateRandomUsernameOnMount={false}
       />
 
       <NodeDiagramControls
@@ -129,6 +163,7 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
           onNodeDrag={handleNodeDrag}
           onNodeDragStop={handleNodeDragStopWithCleanup}
           onSelectionChange={handleSelectionChange}
+          onNodeContextMenu={handleNodeContextMenu}
           fitView
           multiSelectionKeyCode="Shift"
           deleteKeyCode="Delete"
@@ -140,6 +175,14 @@ const NodeDiagram = ({ roomName: initialRoomName = 'nodes-collaborative-room' })
       </div>
 
       <NodeDiagramInfoPanel nodes={nodes} edges={edges} />
+
+      <NodeContextMenu
+        isVisible={contextMenu.visible}
+        position={{ x: contextMenu.x, y: contextMenu.y }}
+        onClose={handleCloseContextMenu}
+        onRemove={handleRemoveNodeFromMenu}
+        nodeName={contextMenu.nodeName}
+      />
     </div>
   );
 };

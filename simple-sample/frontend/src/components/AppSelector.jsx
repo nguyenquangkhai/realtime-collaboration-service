@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import '@material/web/button/filled-button.js';
+import '@material/web/textfield/outlined-text-field.js';
+import '@material/web/labs/card/elevated-card.js';
 
 const AppSelector = ({ onSelectApp, initialRoomName = '' }) => {
   const [selectedRoom, setSelectedRoom] = useState(initialRoomName);
@@ -40,22 +43,20 @@ const AppSelector = ({ onSelectApp, initialRoomName = '' }) => {
       </header>
 
       <div className="room-input">
-        <label htmlFor="room-name">
-          <strong>Room Name:</strong>
-        </label>
-        <input
-          id="room-name"
-          type="text"
+        <md-outlined-text-field
+          label="Room Name"
           value={selectedRoom}
-          onChange={(e) => setSelectedRoom(e.target.value)}
+          onInput={(e) => setSelectedRoom(e.target.value)}
           placeholder="Enter a room name (optional)"
-        />
+          style={{ width: '100%', maxWidth: '400px' }}
+        >
+        </md-outlined-text-field>
         <small>Leave empty to auto-generate a room name</small>
       </div>
 
       <div className="apps-grid">
         {apps.map((app) => (
-          <div key={app.id} className="app-card">
+          <md-elevated-card key={app.id} className="app-card">
             <div className="app-icon">{app.icon}</div>
             <h3>{app.name}</h3>
             <p>{app.description}</p>
@@ -66,13 +67,13 @@ const AppSelector = ({ onSelectApp, initialRoomName = '' }) => {
               ))}
             </ul>
             
-            <button 
+            <md-filled-button 
               className="app-select-button"
               onClick={() => handleAppSelect(app.id)}
             >
               Start {app.name}
-            </button>
-          </div>
+            </md-filled-button>
+          </md-elevated-card>
         ))}
       </div>
 
@@ -105,53 +106,78 @@ const AppSelector = ({ onSelectApp, initialRoomName = '' }) => {
           max-width: 1200px;
           margin: 0 auto;
           padding: 2rem;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+          font-family: var(--md-font-family, 'Roboto', sans-serif);
+          background: var(--md-surface, #fef7ff);
+          min-height: 100vh;
         }
 
         .app-selector-header {
           text-align: center;
+          margin-bottom: 3rem;
+          background: var(--md-primary-container, #eaddff);
+          padding: 3rem 2rem;
+          border-radius: var(--md-border-radius-xl, 28px);
           margin-bottom: 2rem;
         }
 
         .app-selector-header h1 {
-          font-size: 2.5rem;
-          margin-bottom: 0.5rem;
-          color: #333;
+          font-size: var(--md-font-size-display-large, 3.5rem);
+          font-weight: var(--md-font-weight-regular, 400);
+          margin-bottom: 1rem;
+          color: var(--md-on-primary-container, #21005d);
+          line-height: 1.2;
         }
 
         .app-selector-header p {
-          font-size: 1.1rem;
-          color: #666;
+          font-size: var(--md-font-size-title-large, 1.375rem);
+          color: var(--md-on-primary-container-variant, #4f378b);
           margin: 0;
+          font-weight: 400;
         }
 
         .room-input {
-          background: #f8f9fa;
-          padding: 1.5rem;
-          border-radius: 8px;
+          background: var(--md-sys-color-surface-container);
+          padding: 2rem;
+          border-radius: 16px;
           margin-bottom: 2rem;
           text-align: center;
+          border: 1px solid var(--md-sys-color-outline-variant);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 1rem;
         }
 
         .room-input label {
           display: block;
-          margin-bottom: 0.5rem;
-          color: #333;
+          margin-bottom: 0.75rem;
+          color: var(--md-on-surface, #1c1b1f);
+          font-size: var(--md-font-size-title-medium, 1rem);
+          font-weight: var(--md-font-weight-medium, 500);
         }
 
         .room-input input {
           width: 100%;
           max-width: 400px;
-          padding: 0.75rem;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-          font-size: 1rem;
+          padding: 1rem;
+          border: 2px solid var(--md-outline, #79747e);
+          border-radius: var(--md-border-radius-s, 4px);
+          font-size: var(--md-font-size-body-large, 1rem);
+          background: var(--md-surface, #fef7ff);
+          color: var(--md-on-surface, #1c1b1f);
+          transition: border-color 0.15s ease;
+        }
+
+        .room-input input:focus {
+          outline: none;
+          border-color: var(--md-primary, #6750a4);
+          background: var(--md-surface-variant, #e7e0ec);
         }
 
         .room-input small {
-          display: block;
-          margin-top: 0.5rem;
-          color: #666;
+          color: var(--md-sys-color-on-surface-variant);
+          font-size: 0.875rem;
+          margin: 0;
         }
 
         .apps-grid {
@@ -162,19 +188,35 @@ const AppSelector = ({ onSelectApp, initialRoomName = '' }) => {
         }
 
         .app-card {
-          background: white;
-          border: 2px solid #e9ecef;
-          border-radius: 12px;
           padding: 2rem;
           text-align: center;
-          transition: all 0.3s ease;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+          cursor: default;
+          background: var(--md-sys-color-surface-container-low) !important;
+          color: var(--md-sys-color-on-surface) !important;
         }
 
         .app-card:hover {
-          border-color: #007bff;
           transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          background: var(--md-sys-color-surface-container) !important;
+        }
+
+        .app-card h3 {
+          color: var(--md-sys-color-on-surface) !important;
+          margin: 1rem 0 0.5rem 0;
+          font-size: 1.5rem;
+          font-weight: 500;
+        }
+
+        .app-card p {
+          color: var(--md-sys-color-on-surface-variant) !important;
+          margin: 0 0 1.5rem 0;
+          line-height: 1.5;
+        }
+
+        .app-features li {
+          color: var(--md-sys-color-on-surface-variant) !important;
+          text-align: left;
         }
 
         .app-icon {
@@ -207,47 +249,43 @@ const AppSelector = ({ onSelectApp, initialRoomName = '' }) => {
         }
 
         .app-select-button {
-          background: #007bff;
-          color: white;
-          border: none;
-          padding: 0.75rem 2rem;
-          font-size: 1rem;
-          border-radius: 6px;
-          cursor: pointer;
-          transition: background-color 0.2s ease;
           width: 100%;
-        }
-
-        .app-select-button:hover {
-          background: #0056b3;
+          margin-top: 1rem;
         }
 
         .info-section {
-          background: #f8f9fa;
+          background: var(--md-surface-container, #f3edf7);
           padding: 2rem;
-          border-radius: 8px;
+          border-radius: var(--md-border-radius-l, 16px);
           text-align: center;
+          border: 1px solid var(--md-outline-variant, #c4c7c5);
         }
 
         .info-section h3 {
           margin-top: 0;
-          color: #333;
+          color: var(--md-on-surface, #1c1b1f);
+          font-size: var(--md-font-size-title-medium, 1rem);
+          font-weight: var(--md-font-weight-medium, 500);
         }
 
         .info-section ol {
           text-align: left;
           max-width: 600px;
           margin: 0 auto 2rem auto;
+          color: var(--md-on-surface-variant, #49454f);
+          font-size: var(--md-font-size-body-medium, 0.875rem);
+          line-height: 1.5;
         }
 
         .info-section li {
           margin: 0.5rem 0;
-          color: #555;
         }
 
         .tech-stack h4 {
           margin: 0 0 1rem 0;
-          color: #333;
+          color: var(--md-on-surface, #1c1b1f);
+          font-size: var(--md-font-size-title-small, 0.875rem);
+          font-weight: var(--md-font-weight-medium, 500);
         }
 
         .tech-tags {
@@ -258,12 +296,13 @@ const AppSelector = ({ onSelectApp, initialRoomName = '' }) => {
         }
 
         .tech-tag {
-          background: #e9ecef;
-          color: #495057;
-          padding: 0.25rem 0.75rem;
-          border-radius: 20px;
-          font-size: 0.875rem;
-          font-weight: 500;
+          background: var(--md-secondary-container, #e8def8);
+          color: var(--md-on-secondary-container, #1d192b);
+          padding: 0.375rem 0.875rem;
+          border-radius: var(--md-border-radius-full, 20px);
+          font-size: var(--md-font-size-label-medium, 0.75rem);
+          font-weight: var(--md-font-weight-medium, 500);
+          border: 1px solid var(--md-outline-variant, #c4c7c5);
         }
       `}</style>
     </div>

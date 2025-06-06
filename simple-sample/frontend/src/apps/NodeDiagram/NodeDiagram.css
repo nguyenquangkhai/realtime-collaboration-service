@@ -9,75 +9,9 @@
   color: var(--md-sys-color-on-background);
 }
 
-.app-header {
-  padding: 16px;
-  background-color: var(--md-sys-color-surface-container-low);
-  border-bottom: 1px solid var(--md-sys-color-outline-variant);
-  box-shadow: var(--md-sys-elevation-level1);
-}
+/* Header styles moved to shared AppHeader component */
 
-.app-header h1 {
-  margin: 0 0 8px 0;
-  font-size: var(--md-sys-typescale-headline-large-size);
-  font-weight: var(--md-sys-typescale-headline-large-weight);
-  color: var(--md-sys-color-on-surface);
-}
-
-.app-header p {
-  margin: 0;
-  color: var(--md-sys-color-on-surface-variant);
-  font-size: var(--md-sys-typescale-body-large-size);
-}
-
-.room-controls {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  margin-top: 12px;
-  flex-wrap: wrap;
-}
-
-.room-controls label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--md-sys-color-on-surface);
-  font-weight: var(--md-sys-typescale-label-large-weight);
-  font-size: var(--md-sys-typescale-label-large-size);
-}
-
-.room-controls input {
-  padding: 12px 16px;
-  border: 1px solid var(--md-sys-color-outline);
-  border-radius: 8px;
-  font-size: var(--md-sys-typescale-body-large-size);
-  background-color: var(--md-sys-color-surface);
-  color: var(--md-sys-color-on-surface);
-  transition: border-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.room-controls input:focus {
-  outline: none;
-  border-color: var(--md-sys-color-primary);
-  border-width: 2px;
-}
-
-.connection-status {
-  padding: 4px 12px;
-  border-radius: 16px;
-  font-weight: var(--md-sys-typescale-label-large-weight);
-  font-size: var(--md-sys-typescale-label-large-size);
-}
-
-.connection-status.connected {
-  background-color: var(--md-sys-color-tertiary-container);
-  color: var(--md-sys-color-on-tertiary-container);
-}
-
-.connection-status.disconnected {
-  background-color: var(--md-sys-color-error-container);
-  color: var(--md-sys-color-on-error-container);
-}
+/* Room controls and connection status styles moved to shared AppHeader component */
 
 .controls {
   display: flex;
@@ -115,21 +49,7 @@
   box-shadow: var(--md-sys-elevation-level0);
 }
 
-.users {
-  margin-top: 12px;
-  font-size: var(--md-sys-typescale-body-large-size);
-}
-
-.users strong {
-  color: var(--md-sys-color-on-surface);
-  font-weight: var(--md-sys-typescale-label-large-weight);
-}
-
-.user-item {
-  margin-left: 8px;
-  font-weight: 600;
-  color: var(--md-sys-color-primary);
-}
+/* Users styles moved to shared AppHeader component */
 
 .flow-container {
   flex: 1;
@@ -271,26 +191,21 @@
 /* Responsive Design */
 @media (max-width: 768px) {
   .app-header {
-    padding: 12px;
+    margin: 4rem 0.5rem 1rem 0.5rem;
+    padding: 1.5rem;
   }
 
   .app-header h1 {
-    font-size: var(--md-sys-typescale-title-large-size);
+    font-size: 1.5rem;
   }
 
   .room-controls {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
+    grid-template-columns: 1fr;
+    gap: 1rem;
   }
 
-  .room-controls label {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .room-controls input {
-    width: 100%;
+  .connection-status {
+    justify-self: center;
   }
 
   .controls {

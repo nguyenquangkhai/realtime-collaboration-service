@@ -1,0 +1,176 @@
+/* Context Menu Overlay */
+.context-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+  background: transparent;
+  cursor: default;
+}
+
+/* Node Context Menu - Material Design 3 */
+.node-context-menu {
+  position: fixed;
+  min-width: 192px;
+  background: var(--md-surface-container, #f3f3f3);
+  background-color: rgb(243, 243, 243); /* Fallback solid background */
+  border-radius: var(--md-border-radius-m, 8px);
+  box-shadow: var(--md-elevation-3, 0 4px 8px rgba(0, 0, 0, 0.12));
+  border: 1px solid var(--md-outline-variant, #e0e0e0);
+  padding: 8px 0;
+  z-index: 1000;
+  animation: contextMenuEnter 0.15s ease-out;
+  transform-origin: top left;
+  backdrop-filter: blur(8px);
+}
+
+@keyframes contextMenuEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.context-menu-header {
+  padding: 8px 16px 4px 16px;
+}
+
+.context-menu-title {
+  font-family: var(--md-font-family);
+  font-size: var(--md-font-size-body-medium);
+  font-weight: 500;
+  color: var(--md-on-surface, #1c1b1f);
+  color: #1c1b1f !important; /* Force dark text for light background */
+  line-height: 1.4;
+  opacity: 1;
+}
+
+.context-menu-divider {
+  height: 1px;
+  background: var(--md-outline-variant);
+  margin: 4px 0;
+  opacity: 0.5;
+}
+
+.context-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: none;
+  background: none;
+  color: var(--md-on-surface, #1c1b1f);
+  color: #1c1b1f !important; /* Force dark text for light background */
+  font-family: var(--md-font-family);
+  font-size: var(--md-font-size-body-large);
+  font-weight: 400;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+  min-height: 40px;
+}
+
+.context-menu-item:hover {
+  background: var(--md-state-hover-on-surface);
+}
+
+.context-menu-item:focus {
+  outline: none;
+  background: var(--md-state-focus-on-surface);
+}
+
+.context-menu-item:active {
+  background: var(--md-state-pressed-on-surface);
+}
+
+.context-menu-item--danger {
+  color: var(--md-error, #ba1a1a);
+  color: #ba1a1a !important; /* Force red text for danger action */
+}
+
+.context-menu-item--danger:hover {
+  background: var(--md-state-hover-on-error-container);
+  color: var(--md-on-error-container);
+}
+
+.context-menu-item--danger:focus {
+  background: var(--md-state-focus-on-error-container);
+  color: var(--md-on-error-container);
+}
+
+.context-menu-item--danger:active {
+  background: var(--md-state-pressed-on-error-container);
+  color: var(--md-on-error-container);
+}
+
+.context-menu-icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  opacity: 1;
+}
+
+.context-menu-item--danger .context-menu-icon {
+  opacity: 1;
+}
+
+/* Dark theme adjustments */
+[data-theme="dark"] .node-context-menu {
+  background: var(--md-surface-container-dark, #2d2d2d);
+  background-color: rgb(45, 45, 45); /* Fallback solid background */
+  border-color: var(--md-outline-variant-dark, #444);
+}
+
+[data-theme="dark"] .context-menu-title {
+  color: var(--md-on-surface-dark, #e6e1e5);
+  color: #e6e1e5 !important; /* Force light text for dark background */
+}
+
+[data-theme="dark"] .context-menu-divider {
+  background: var(--md-outline-variant-dark);
+}
+
+[data-theme="dark"] .context-menu-item {
+  color: var(--md-on-surface-dark, #e6e1e5);
+  color: #e6e1e5 !important; /* Force light text for dark background */
+}
+
+[data-theme="dark"] .context-menu-item:hover {
+  background: var(--md-state-hover-on-surface-dark);
+}
+
+[data-theme="dark"] .context-menu-item:focus {
+  background: var(--md-state-focus-on-surface-dark);
+}
+
+[data-theme="dark"] .context-menu-item:active {
+  background: var(--md-state-pressed-on-surface-dark);
+}
+
+[data-theme="dark"] .context-menu-item--danger {
+  color: var(--md-error-dark, #ffb4ab);
+  color: #ffb4ab !important; /* Force light red text for dark background */
+}
+
+[data-theme="dark"] .context-menu-item--danger:hover {
+  background: var(--md-state-hover-on-error-container-dark);
+  color: var(--md-on-error-container-dark);
+}
+
+[data-theme="dark"] .context-menu-item--danger:focus {
+  background: var(--md-state-focus-on-error-container-dark);
+  color: var(--md-on-error-container-dark);
+}
+
+[data-theme="dark"] .context-menu-item--danger:active {
+  background: var(--md-state-pressed-on-error-container-dark);
+  color: var(--md-on-error-container-dark);
+} 
