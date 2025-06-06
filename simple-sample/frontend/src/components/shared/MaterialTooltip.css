@@ -1,0 +1,185 @@
+/* Material Design 3 Tooltip Styles */
+.material-tooltip-container {
+  position: relative;
+  display: inline-block;
+}
+
+.material-tooltip-trigger {
+  display: inline-block;
+  cursor: help;
+}
+
+.material-tooltip {
+  position: absolute;
+  z-index: 1000;
+  padding: 8px 12px;
+  
+  /* Material Design 3 Typography */
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: 0.1px;
+  
+  /* Material Design 3 Colors - Surface Variant */
+  background-color: var(--md-sys-color-inverse-surface, #313033);
+  color: var(--md-sys-color-inverse-on-surface, #f4eff4);
+  
+  /* Material Design 3 Shape */
+  border-radius: 4px;
+  
+  /* Material Design 3 Elevation */
+  box-shadow: 
+    0 3px 5px -1px rgba(0, 0, 0, 0.2),
+    0 6px 10px 0 rgba(0, 0, 0, 0.14),
+    0 1px 18px 0 rgba(0, 0, 0, 0.12);
+    
+  /* Animation */
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  animation: material-tooltip-enter 150ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  
+  /* Prevent text selection */
+  user-select: none;
+  pointer-events: none;
+}
+
+.material-tooltip__content {
+  max-width: 100%;
+  word-wrap: break-word;
+}
+
+.material-tooltip__content ul {
+  margin: 4px 0;
+  padding-left: 16px;
+}
+
+.material-tooltip__content li {
+  margin-bottom: 2px;
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.material-tooltip__content strong {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 600;
+  color: var(--md-sys-color-inverse-primary, #d0bcff);
+}
+
+/* Arrow Styles */
+.material-tooltip__arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-style: solid;
+}
+
+/* Position Variants */
+.material-tooltip--top {
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.8);
+}
+
+.material-tooltip--top.material-tooltip {
+  animation: material-tooltip-enter-top 150ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.material-tooltip--top .material-tooltip__arrow {
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px 5px 0 5px;
+  border-color: var(--md-sys-color-inverse-surface, #313033) transparent transparent transparent;
+}
+
+.material-tooltip--bottom {
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.8);
+}
+
+.material-tooltip--bottom .material-tooltip__arrow {
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 0 5px 5px 5px;
+  border-color: transparent transparent var(--md-sys-color-inverse-surface, #313033) transparent;
+}
+
+.material-tooltip--left {
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%) scale(0.8);
+}
+
+.material-tooltip--left .material-tooltip__arrow {
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 5px 0 5px 5px;
+  border-color: transparent transparent transparent var(--md-sys-color-inverse-surface, #313033);
+}
+
+.material-tooltip--right {
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%) scale(0.8);
+}
+
+.material-tooltip--right .material-tooltip__arrow {
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 5px 5px 5px 0;
+  border-color: transparent var(--md-sys-color-inverse-surface, #313033) transparent transparent;
+}
+
+/* Animations */
+@keyframes material-tooltip-enter {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes material-tooltip-enter-top {
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+/* Click variant for persistent tooltips */
+.material-tooltip--clicked {
+  pointer-events: auto;
+}
+
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+  .material-tooltip {
+    background-color: var(--md-sys-color-surface-container-highest, #49454f);
+    color: var(--md-sys-color-on-surface, #1d1b20);
+  }
+  
+  .material-tooltip__content strong {
+    color: var(--md-sys-color-primary, #d0bcff);
+  }
+  
+  .material-tooltip--top .material-tooltip__arrow,
+  .material-tooltip--bottom .material-tooltip__arrow,
+  .material-tooltip--left .material-tooltip__arrow,
+  .material-tooltip--right .material-tooltip__arrow {
+    border-color: var(--md-sys-color-surface-container-highest, #49454f);
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .material-tooltip {
+    border: 1px solid var(--md-sys-color-outline, #79747e);
+  }
+} 

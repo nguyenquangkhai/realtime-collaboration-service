@@ -3,6 +3,7 @@ import AppSelector from './components/AppSelector';
 import TextEditor from './apps/TextEditor/TextEditor';
 import NodeDiagram from './apps/NodeDiagram/NodeDiagram';
 import Table from './apps/Table/Table';
+import './styles/material-theme.css';
 
 const App = () => {
   const [currentApp, setCurrentApp] = useState(null);
@@ -92,18 +93,21 @@ const App = () => {
         }
 
         .back-button {
-          background: #6c757d;
-          color: white;
+          background-color: var(--md-sys-color-secondary);
+          color: var(--md-sys-color-on-secondary);
           border: none;
-          padding: 0.5rem 1rem;
-          border-radius: 6px;
+          padding: 10px 24px;
+          border-radius: 20px;
           cursor: pointer;
-          font-size: 0.9rem;
-          transition: background-color 0.2s ease;
+          font-size: var(--md-sys-typescale-label-large-size);
+          font-weight: var(--md-sys-typescale-label-large-weight);
+          font-family: var(--md-sys-typescale-label-large-font);
+          transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: var(--md-sys-elevation-level1);
         }
 
         .back-button:hover {
-          background: #545b62;
+          box-shadow: var(--md-sys-elevation-level2);
         }
       `}</style>
     </div>
