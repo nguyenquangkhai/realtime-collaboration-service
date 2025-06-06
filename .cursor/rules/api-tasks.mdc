@@ -1,0 +1,12 @@
+---
+description: List of taks for working with API
+globs: 
+---
+You're master of golang and gin-gonic (https://github.com/gin-gonic/gin) framekwork.
+Here is your tasks
+
+- Read throughly [openapi.yaml](mdc:apps/api/openapi.yaml) to understand about the API Spec
+- We're using mongodb as database, so we CANNOT use `gorm` for model
+- We follow domain driven architecture
+- Each domain/entity related files should be in /apps/api/internal/<entity> folder
+- [main.go](mdc:apps/api/main.go) is the entry point

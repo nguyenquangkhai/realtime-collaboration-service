@@ -52,14 +52,13 @@ const getOrgIdFromUrl = () => {
 };
 
 const CollaborationDiagram = () => {
-  // Get tenant from URL
+  // Get organization ID from URL parameter
   const orgId = getOrgIdFromUrl();
+  const WEBSOCKET_URL = `ws://localhost:1234/flow-diagram?orgId=${orgId}`;
   
-  // Create tenant-aware WebSocket URL
-  const WEBSOCKET_URL = `ws://localhost:1234/flow-diagram?orgId=${encodeURIComponent(orgId)}`;
-  
-  console.log('🏢 Current Tenant:', orgId);
-  console.log('📡 WebSocket URL:', WEBSOCKET_URL);
+  // Remove noisy logging - these were causing render loops
+  // console.log('🏢 Current Tenant:', orgId);
+  // console.log('📡 WebSocket URL:', WEBSOCKET_URL);
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const [connectedUsers, setConnectedUsers] = useState([]);
@@ -72,9 +71,6 @@ const CollaborationDiagram = () => {
   const yEdgesRef = useRef(null);
   const awarenessRef = useRef(null);
   const wsRef = useRef(null);
-
-  // Light throttling to prevent feedback loops
-  const positionUpdateTimeouts = useRef(new Map());
 
   const sendToServer = (messageType, data) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -255,142 +251,109 @@ const CollaborationDiagram = () => {
         wsRef.current = null;
       }
       
-      // Clean up timeouts
-      positionUpdateTimeouts.current.forEach(timeoutId => clearTimeout(timeoutId));
-      positionUpdateTimeouts.current.clear();
-      
       doc.destroy();
       setIsConnected(false);
     };
   }, []);
 
-  // Separate function to apply awareness styles to current nodes
-  // Create a computed version of nodes with awareness styles (no setNodes!)
+  // ROBUST: Styling logic that never loses nodes
   const styledNodes = useMemo(() => {
-    if (!awarenessRef.current) return nodes;
-    
-    const states = Array.from(awarenessRef.current.getStates().values());
-    
-    // Check if any styling is needed
-    const hasActiveInteractions = states.some(state => 
-      state.user && (state.user.selectedNode || state.user.isDragging)
-    );
-    
-    if (!hasActiveInteractions) {
-      return nodes; // Return original nodes if no styling needed
+    // Always return the original nodes if there are any issues
+    if (!nodes || nodes.length === 0) {
+      return [];
     }
-    
-    console.log('🎨 Computing styled nodes with awareness. Input nodes:', nodes.map(n => ({id: n.id, pos: n.position})));
-    
-    return nodes.map(node => {
-      const interactingUser = states.find(state => state.user && state.user.selectedNode === node.id)?.user;
+
+    // If no awareness, just return original nodes
+    if (!awarenessRef.current) {
+      return nodes;
+    }
+
+    try {
+      const states = Array.from(awarenessRef.current.getStates().values());
       
-      if (interactingUser) {
-        console.log('🎨 Styling node:', node.id, 'INPUT position:', node.position, 'user:', interactingUser.name);
-        const isDragging = interactingUser.isDragging;
-        const baseStyle = {
-          border: '1px solid #555',
-          padding: 10,
-          backgroundColor: '#fff'
-        };
+      // Quick return if no interactions to avoid unnecessary processing
+      const hasActiveInteractions = states.some(state => 
+        state.user && (state.user.selectedNode || state.user.isDragging)
+      );
+      
+      if (!hasActiveInteractions) {
+        return nodes;
+      }
+
+      // SAFE: Apply styling only to interacting nodes, leave others unchanged
+      const resultNodes = nodes.map(node => {
+        const interactingUser = states.find(state => 
+          state.user && 
+          (state.user.selectedNode === node.id || 
+           (state.user.isDragging && state.user.selectedNode === node.id))
+        )?.user;
         
-        const { background: _background, ...cleanStyle } = node.style || {};
+        if (!interactingUser) {
+          return node; // No interaction, return original node
+        }
         
-        const styledNode = { 
+        const isDragging = interactingUser.isDragging && interactingUser.selectedNode === node.id;
+        const isSelected = interactingUser.selectedNode === node.id && !isDragging;
+        
+        if (!isDragging && !isSelected) {
+          return node; // No styling needed
+        }
+        
+        const userColor = interactingUser.color || '#8b5cf6';
+        
+        return {
           ...node,
-          style: { 
-            ...baseStyle,
-            ...cleanStyle,
-            border: isDragging 
-              ? `3px solid ${interactingUser.color}` 
-              : `2px solid ${interactingUser.color}`,
+          style: {
+            ...node.style,
+            border: `2px solid ${userColor}`,
             boxShadow: isDragging 
-              ? `0 0 8px ${interactingUser.color}80, 0 0 0 2px ${interactingUser.color}30`
-              : `0 0 4px ${interactingUser.color}60`,
+              ? `0 8px 25px rgba(0,0,0,0.2), 0 0 0 1px ${userColor}` 
+              : `0 4px 12px rgba(0,0,0,0.15), 0 0 0 1px ${userColor}`,
             backgroundColor: '#fff',
-            // FIXED: Use margin instead of transform to avoid position corruption
-            // transform causes visual displacement while maintaining data position
+            // Use margin instead of transform to avoid visual displacement
             marginTop: isDragging ? '-2px' : '0px',
             marginLeft: isDragging ? '-2px' : '0px',
-            zIndex: isDragging ? 1000 : 1,
-            transition: 'all 0.15s ease-in-out'
+            transition: isDragging ? 'none' : 'all 0.15s ease',
           }
         };
-        console.log('🎨 OUTPUT styled node:', styledNode.id, 'OUTPUT position:', styledNode.position);
-        return styledNode;
-      }
+      });
       
-      return node; // Return original node if no styling needed
-    });
-  }, [nodes, connectedUsers]); // Depend on nodes and connectedUsers (which updates with awareness)
+      return resultNodes;
+    } catch (error) {
+      console.error('Error in styledNodes computation:', error);
+      return nodes; // Fallback to original nodes if styling fails
+    }
+  }, [nodes, connectedUsers.length]); // Use length instead of full array to prevent unnecessary re-computations
 
-  // Simple Yjs observer - direct sync
+  // Create a stable nodes reference for debugging
+  const debugStyledNodes = useMemo(() => {
+    const result = styledNodes;
+    return result;
+  }, [styledNodes]);
+
+  // SIMPLIFIED: Direct Yjs sync without over-protection
   const handleNodesChange = useCallback(() => {
     if (!yNodesRef.current) return;
-    const currentNodesMap = yNodesRef.current.toJSON();
-    const nodesFromYjs = Object.values(currentNodesMap);
-    console.log('📊 handleNodesChange TRIGGERED - Nodes updated from Yjs:', nodesFromYjs.length, 'nodes');
     
-    // Debug: Check if positions are valid
-    nodesFromYjs.forEach(node => {
+    const nodesFromYjs = Object.values(yNodesRef.current.toJSON());
+    
+    // Validate nodes before setting
+    const validNodes = nodesFromYjs.filter(node => {
       if (!node.position || typeof node.position.x !== 'number' || typeof node.position.y !== 'number') {
-        console.warn('⚠️ Invalid node position detected:', node.id, node.position);
-      } else {
-        console.log('✅ Valid node:', node.id, 'at', node.position);
+        console.warn('⚠️ Filtering invalid node:', node.id, node.position);
+        return false;
       }
+      return true;
     });
     
-    // CRITICAL FIX: Don't override position of actively interacted nodes
-    const currentAwarenessState = awarenessRef.current?.getLocalState();
-    const interactedNodeId = currentAwarenessState?.user?.selectedNode || null;
-    const isDragging = currentAwarenessState?.user?.isDragging || false;
-    
-    // VALIDATION: Only protect nodes that actually exist in Yjs
-    const nodeExists = interactedNodeId && nodesFromYjs.some(node => node.id === interactedNodeId);
-    
-    if (interactedNodeId && nodeExists && !isDragging) {
-      // ONLY protect selected nodes (not dragging ones) - allow real-time drag updates
-      console.log('🚫 Protecting SELECTED node from Yjs position override:', interactedNodeId);
-      // Apply Yjs updates only to non-interacted nodes
-      setNodes(prevNodes => {
-        const result = nodesFromYjs.map(yNode => {
-          if (yNode.id === interactedNodeId) {
-            // Keep current position for selected node, update other properties
-            const currentNode = prevNodes.find(n => n.id === yNode.id);
-            const finalNode = currentNode ? { ...yNode, position: currentNode.position } : yNode;
-            console.log('🛡️ Protected SELECTED node position - Yjs:', yNode.position, 'Kept:', finalNode.position);
-            return finalNode;
-          }
-          return yNode; // Apply Yjs state for non-interacted nodes
-        });
-        console.log('🛡️ Final protected setNodes result:', result.map(n => ({id: n.id, pos: n.position})));
-        return result;
-      });
-    } else if (interactedNodeId && nodeExists && isDragging) {
-      // ALLOW real-time position updates during dragging for smooth UX
-      console.log('✅ Allowing real-time drag updates for node:', interactedNodeId);
-      console.log('🔄 handleNodesChange setNodes called with:', nodesFromYjs.map(n => ({id: n.id, pos: n.position})));
-      console.log('🔄 FULL NODE DATA:', nodesFromYjs);
-      setNodes(nodesFromYjs);
-    } else {
-      // Clean up stale awareness state if node doesn't exist
-      if (interactedNodeId && !nodeExists) {
-        console.log('🧹 Cleaning stale awareness state for non-existent node:', interactedNodeId);
-        awarenessRef.current.setLocalStateField('user', { 
-          ...currentUser, 
-          selectedNode: null,
-          isDragging: false
-        });
-      }
-      
-      // Direct sync - Yjs is the single source of truth for position and data
-      console.log('🔄 handleNodesChange setNodes called with:', nodesFromYjs.map(n => ({id: n.id, pos: n.position})));
-      console.log('🔄 FULL NODE DATA:', nodesFromYjs);
-      setNodes(nodesFromYjs);
+    // Only log if there are validation issues
+    if (nodesFromYjs.length !== validNodes.length) {
+      console.warn('🔍 Node validation issues - Total from Yjs:', nodesFromYjs.length, 'Valid:', validNodes.length);
     }
     
-    // Styling is now handled by styledNodes useMemo - no need to trigger here
-      }, []);
+    // Always set nodes - let React handle the comparison
+    setNodes(validNodes);
+  }, []); // Remove dependency to prevent circular re-subscription
 
   // Subscribe to Yjs shared types changes for UI updates
   useEffect(() => {
@@ -404,7 +367,10 @@ const CollaborationDiagram = () => {
     const handleAwarenessUiUpdate = () => {
       const states = Array.from(awarenessRef.current.getStates().values());
       const users = states.map(state => state.user).filter(Boolean);
-      console.log('👥 Awareness update - Total states:', states.length, 'Users:', users.length, users);
+      // Reduced logging - only log when user count changes
+      if (users.length !== connectedUsers.length) {
+        console.log('👥 Users:', users.length, users.map(u => u.name));
+      }
       setConnectedUsers(users);
       // Styling is now handled by styledNodes useMemo automatically
     };
@@ -426,109 +392,67 @@ const CollaborationDiagram = () => {
   }, []); // Remove currentUser dependency to prevent re-subscriptions
 
 
-  // React Flow event handlers - single source of truth with light throttling
+  // SIMPLIFIED: React Flow event handlers with basic awareness
   const onNodesChange = useCallback((changes) => {
     if (!yNodesRef.current || !ydocRef.current || !awarenessRef.current || !currentUser) return;
     
-    console.log('🔄 onNodesChange triggered with changes:', changes.map(c => ({type: c.type, id: c.id, dragging: c.dragging, position: c.position, ...c})));
+    // Removed excessive position change logging
     
     let shouldUpdateAwareness = false;
     let newAwarenessState = { ...currentUser };
     
     changes.forEach(change => {
-      console.log('🔍 Processing change:', change.type, 'for node:', change.id, 'Full change:', change);
-      
-      if (change.type === 'position') {
-        if (change.position) {
-          // Position change WITH coordinates
-          const node = yNodesRef.current.get(change.id);
-          if (node) {
-            if (change.dragging) {
-              console.log('📍 Position change with dragging=true for node:', change.id, 'Position:', change.position);
-              
-              // Only update awareness if we're starting a new drag (not during drag)
-              const currentAwarenessState = awarenessRef.current.getLocalState();
-              if (!currentAwarenessState?.user?.isDragging || currentAwarenessState?.user?.selectedNode !== change.id) {
-                console.log('🎯 Setting awareness to dragging for node:', change.id);
-                newAwarenessState = {
-                  ...currentUser,
-                  selectedNode: change.id,
-                  isDragging: true
-                };
-                shouldUpdateAwareness = true;
-              }
-              
-              // IMPORTANT: Allow immediate position updates during drag for responsiveness
-              // Don't throttle the first drag event
-              if (!positionUpdateTimeouts.current.has(change.id)) {
-                const currentNode = yNodesRef.current.get(change.id);
-                if (currentNode) {
-                  ydocRef.current.transact(() => {
-                    yNodesRef.current.set(change.id, { ...currentNode, position: change.position });
-                  });
-                }
-              }
-
-              // Light throttling during drag to prevent feedback loops
-              const timeoutId = positionUpdateTimeouts.current.get(change.id);
-              if (timeoutId) {
-                clearTimeout(timeoutId);
-              }
-              
-              const newTimeoutId = setTimeout(() => {
-                const currentNode = yNodesRef.current.get(change.id);
-                if (currentNode) {
-                  ydocRef.current.transact(() => {
-                    yNodesRef.current.set(change.id, { ...currentNode, position: change.position });
-                  });
-                }
-                positionUpdateTimeouts.current.delete(change.id);
-              }, 50); // 50ms = 20fps, light but prevents loops
-              
-              positionUpdateTimeouts.current.set(change.id, newTimeoutId);
-            } else {
-              // Drag ended: clear selection state and immediate update
-              console.log('✋ Drag ended for node:', change.id, 'Position:', change.position);
+      if (change.type === 'position' && change.position) {
+        // Position change with valid coordinates
+        const node = yNodesRef.current.get(change.id);
+        if (node) {
+          if (change.dragging) {
+            // Start dragging: update awareness and position
+            if (!currentUser.isDragging || currentUser.selectedNode !== change.id) {
+              // Starting drag for node
               newAwarenessState = {
                 ...currentUser,
-                selectedNode: null,
-                isDragging: false
+                selectedNode: change.id,
+                isDragging: true
               };
               shouldUpdateAwareness = true;
-
-              ydocRef.current.transact(() => {
-                yNodesRef.current.set(change.id, { ...node, position: change.position });
-              });
-              // Clear any pending update
-              const timeoutId = positionUpdateTimeouts.current.get(change.id);
-              if (timeoutId) {
-                clearTimeout(timeoutId);
-                positionUpdateTimeouts.current.delete(change.id);
-              }
             }
-          }
-        } else {
-          // Position change WITHOUT coordinates - this is the bug!
-          console.log('🚫 IGNORED: Position change without coordinates for node:', change.id, 'Change:', change);
-          
-          // Only clear awareness if it's a non-dragging position event (like click end)
-          if (!change.dragging) {
-            console.log('🧹 Clearing awareness state for position event without coordinates');
+            
+            // Update position in Yjs immediately for real-time sync
+            ydocRef.current.transact(() => {
+              yNodesRef.current.set(change.id, { ...node, position: change.position });
+            });
+          } else {
+            // End dragging: clear awareness
+            // Ending drag for node
             newAwarenessState = {
               ...currentUser,
               selectedNode: null,
               isDragging: false
             };
             shouldUpdateAwareness = true;
+
+            // Final position update
+            ydocRef.current.transact(() => {
+              yNodesRef.current.set(change.id, { ...node, position: change.position });
+            });
           }
         }
-      } else {
-        // Log non-position changes for debugging
-        console.log('🔧 Non-position change:', change.type, 'for node:', change.id, 'Change:', change);
+      } else if (change.type === 'position' && !change.position) {
+        // Position change without coordinates (usually end of interaction)
+        if (!change.dragging) {
+          newAwarenessState = {
+            ...currentUser,
+            selectedNode: null,
+            isDragging: false
+          };
+          shouldUpdateAwareness = true;
+        }
       }
+      // Handle other change types (dimensions, select, etc.) without special logic
     });
     
-    // Only update awareness when actually needed (start/end drag, not during)
+    // Update awareness state when needed
     if (shouldUpdateAwareness) {
       awarenessRef.current.setLocalStateField('user', newAwarenessState);
     }
@@ -550,38 +474,10 @@ const CollaborationDiagram = () => {
   }, []);
   
   const onNodeClick = useCallback((event, node) => {
-    console.log('👆 Node clicked:', node.id, 'at position:', node.position);
-    
-    // DEBUG: Check if DOM position matches data position
-    setTimeout(() => {
-      const nodeElement = document.querySelector(`[data-id="${node.id}"]`);
-      if (nodeElement) {
-        const rect = nodeElement.getBoundingClientRect();
-        const parent = nodeElement.closest('.react-flow__viewport');
-        const parentRect = parent?.getBoundingClientRect();
-        
-        if (parentRect) {
-          const domPosition = {
-            x: rect.left - parentRect.left,
-            y: rect.top - parentRect.top
-          };
-          console.log('🔍 DOM vs Data position check:');
-          console.log('  📊 Data position:', node.position);
-          console.log('  🏠 DOM position:', domPosition);
-          console.log('  📏 Difference:', {
-            x: Math.abs(domPosition.x - node.position.x),
-            y: Math.abs(domPosition.y - node.position.y)
-          });
-        }
-      }
-    }, 100); // Wait for any animations/transitions to complete
-    
     if (awarenessRef.current && currentUser) {
       const currentAwarenessState = awarenessRef.current.getLocalState();
       const currentSelectedNode = currentAwarenessState?.user?.selectedNode;
       const newSelectedNodeId = currentSelectedNode === node.id ? null : node.id;
-      
-      console.log('👆 Selection change:', currentSelectedNode, '->', newSelectedNodeId);
       
       // Only update awareness if selection actually changed
       if (currentSelectedNode !== newSelectedNodeId) {
@@ -606,7 +502,6 @@ const CollaborationDiagram = () => {
     const currentNodes = yNodesRef.current.toJSON();
     const nodeCount = Object.keys(currentNodes).length;
     const existingNodes = Object.values(currentNodes);
-    console.log(`🚀 Adding node. Current nodes in Yjs:`, nodeCount, Object.keys(currentNodes));
     
     // Generate position with collision avoidance
     let position;
@@ -643,7 +538,6 @@ const CollaborationDiagram = () => {
         x: col * gridSize + 100,  // Start at x=100
         y: row * gridSize + 100   // Start at y=100
       };
-      console.log(`🔄 Used grid fallback position for node ${nodeCount + 1}:`, position);
     }
     
     const newNodeId = getNodeId();
@@ -655,9 +549,6 @@ const CollaborationDiagram = () => {
       style: { border: '1px solid #555', padding: 10, backgroundColor: '#fff' },
     };
     
-    console.log(`🆕 Creating new node at position:`, position, 'after', attempts, 'attempts');
-    console.log(`🔍 Full node object:`, newNode);
-    
     // Validate position before adding
     if (!position || typeof position.x !== 'number' || typeof position.y !== 'number') {
       console.error('❌ Invalid position, aborting node creation:', position);
@@ -666,7 +557,6 @@ const CollaborationDiagram = () => {
     
     ydocRef.current.transact(() => {
       yNodesRef.current.set(newNodeId, newNode);
-      console.log(`💾 Node ${newNodeId} added to Yjs map`);
     });
   };
 
@@ -676,11 +566,6 @@ const CollaborationDiagram = () => {
     ydocRef.current.transact(() => {
       yNodesRef.current.clear();
     });
-  };
-
-  // DEBUGGING: Manual test of awareness styles
-  const testAwarenessStyles = () => {
-    console.log('🧪 MANUAL TEST: Styling is now automatic via styledNodes');
   };
 
   const onNodesDelete = useCallback((nodesToDelete) => {
@@ -717,25 +602,9 @@ const CollaborationDiagram = () => {
         onAddNode={addNode}
         onClearNodes={clearAllNodes}
       />
-      <button 
-        onClick={testAwarenessStyles}
-        style={{
-          position: 'absolute',
-          top: '50px',
-          right: '10px',
-          zIndex: 1000,
-          padding: '5px 10px',
-          backgroundColor: '#ef4444',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px'
-        }}
-      >
-        🧪 Test Awareness
-      </button>
       <div style={{ flexGrow: 1 }}>
         <ReactFlow
-          nodes={styledNodes}
+          nodes={debugStyledNodes}
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}

@@ -1,0 +1,36 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "worker": "node worker.js",
+    "dev": "nodemon server.js",
+    "dev:worker": "nodemon worker.js",
+    "redis": "docker run -p 6379:6379 redis",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "yjs",
+    "collaboration",
+    "redis",
+    "websocket"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "description": "Scalable WebSocket server for Yjs collaborative editing using Redis",
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "lib0": "^0.2.89",
+    "minio": "^8.0.1",
+    "uws": "^200.0.0",
+    "ws": "^8.18.2",
+    "y-protocols": "^1.0.6",
+    "y-redis": "^1.0.3",
+    "yjs": "^13.6.27"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}

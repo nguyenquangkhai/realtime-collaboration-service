@@ -1,0 +1,20 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+If the request start with "plan:", then make a detail plan step by step on how to do the request, no need to make any code change.
+If the request start with "apply:", then implement the plan that was previously created
+
+# Project structure
+- Refer to @.cursor/notes/project_structure.md to understand about how we organize the project and source code.
+
+# Code convention
+- We use `PascalCase` and `camelCase`
+
+Rules:
+- [openapi.yaml](mdc:apps/api/openapi.yaml) is the source of truth, DONOT change it without my permission.
+1. Always read [specs.md](mdc:specs.md) throughly to understand about the project
+
+## Coding Convention
+For API, we use `camelCase` for response data, but in models, we still use `snake_case`

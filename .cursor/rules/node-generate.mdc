@@ -1,0 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+Please read [nodes.md](mdc:apps/docs/content/specifications/nodes.md) for the schema of node and [node-folder-structure.md](mdc:apps/docs/content/specifications/node-folder-structure.md) for the folder structure of one node.
+Please read [component-interactions.md](mdc:apps/docs/content/architecture/component-interactions.md) and [message-flows.md](mdc:apps/docs/content/architecture/message-flows.md) to understand about how flow manager and node runner interacting
+Please keep models and logic separate
+Please keep the logic complexity small, if big function, please break down for more maintenance. Its ok to break into multiple files too.

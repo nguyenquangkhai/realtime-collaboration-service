@@ -1,0 +1,14 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+Your task is writing clear and detail documentation in Markdown format
+
+Here are some rules you MUST follow
+
+Rule 1:
+- Read through all documents (*.md files) inside apps/docs to understand about the project
+
+Output:
+- Must be in Markdown format
