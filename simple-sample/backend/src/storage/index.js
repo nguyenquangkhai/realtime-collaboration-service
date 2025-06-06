@@ -20,7 +20,7 @@ export const createStorage = () => {
   
   switch (storageType) {
     case 's3':
-      const bucketName = env.ensureConf('S3_BUCKET')
+      const bucketName = env.ensureConf('s3-bucket')
       return createS3Storage(bucketName)
     case 'memory':
     default:

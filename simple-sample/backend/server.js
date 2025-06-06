@@ -10,13 +10,13 @@ import { createStorage } from './src/storage/index.js'
 // Configuration
 const PORT = process.env.PORT || 3001
 const HOST = process.env.HOST || 'localhost'
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
+const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379/1'
 
 console.log('🚀 Starting y-redis collaborative server...')
 console.log(`📡 Server: http://${HOST}:${PORT}`)
 console.log(`🔗 Redis: ${REDIS_URL}`)
 
-// Create Redis persistence
+// Create Redis persistence using database isolation
 const redisPersistence = new RedisPersistence({
   redisOpts: { url: REDIS_URL }
 })

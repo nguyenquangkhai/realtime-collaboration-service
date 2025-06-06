@@ -11,11 +11,12 @@ Quill.register('modules/cursors', QuillCursors);
 
 // Editor is an uncontrolled React component
 const Editor = forwardRef(
-  ({ readOnly, defaultValue, onTextChange, onSelectionChange, roomName = 'default-room' }, ref) => {
+  ({ readOnly, defaultValue, onTextChange, onSelectionChange, onConnectionChange, roomName = 'default-room' }, ref) => {
     const containerRef = useRef(null);
     const defaultValueRef = useRef(defaultValue);
     const onTextChangeRef = useRef(onTextChange);
     const onSelectionChangeRef = useRef(onSelectionChange);
+    const onConnectionChangeRef = useRef(onConnectionChange);
     const ydocRef = useRef(null);
     const providerRef = useRef(null);
     const bindingRef = useRef(null);
@@ -23,6 +24,7 @@ const Editor = forwardRef(
     useLayoutEffect(() => {
       onTextChangeRef.current = onTextChange;
       onSelectionChangeRef.current = onSelectionChange;
+      onConnectionChangeRef.current = onConnectionChange;
     });
 
     useEffect(() => {
@@ -38,7 +40,11 @@ const Editor = forwardRef(
       // Create Quill instance with collaboration features
       const quill = new Quill(editorContainer, {
         modules: {
-          cursors: true,
+          cursors: {
+            hideDelayMs: 5000,
+            hideSpeedMs: 300,
+            transformOnTextChange: true
+          },
           toolbar: [
             // Basic Quill content features
             [{ header: [1, 2, false] }],
@@ -70,14 +76,19 @@ const Editor = forwardRef(
       const awareness = provider.awareness;
       providerRef.current = provider;
 
-      // Create editor binding to sync Quill with Yjs
-      const binding = new QuillBinding(ytext, quill, awareness);
-      bindingRef.current = binding;
+      // Handle connection status changes
+      provider.on('status', (event) => {
+        onConnectionChangeRef.current?.(event.status === 'connected');
+      });
 
-      // Set initial content if provided
-      if (defaultValueRef.current && ytext.length === 0) {
-        quill.setContents(defaultValueRef.current);
-      }
+      // Handle connection events
+      provider.on('connection-close', () => {
+        onConnectionChangeRef.current?.(false);
+      });
+
+      provider.on('connection-error', () => {
+        onConnectionChangeRef.current?.(false);
+      });
 
       // Each user should be associated to a color.
       // One approach is to pick a random color from a pool of colors that work well with your project.
@@ -93,39 +104,126 @@ const Editor = forwardRef(
       ]
       const myColor = usercolors[Math.floor(Math.random() * usercolors.length)]
 
-      const inputElement = document.querySelector('#username')
-      // propagate the username from the input element to all users
-      const setUsername = () => {
-        awareness.setLocalStateField('user', { name: inputElement.value, color: myColor })
-      }
-      // observe changes on the input element that contains the username
-      inputElement.addEventListener('input', setUsername);
-      // Set a randomly generated username - this is nice for testing
-      inputElement.value = DoUsername.generate(15)
-      setUsername()
+      // Generate a random username
+      const randomUsername = DoUsername.generate(15);
+      
+      // Set user awareness state immediately
+      awareness.setLocalStateField('user', { 
+        name: randomUsername, 
+        color: myColor 
+      });
 
-      // // Render a list of usernames next to the editor whenever new information is available from the awareness instance
+      // Create editor binding to sync Quill with Yjs
+      const binding = new QuillBinding(ytext, quill, awareness);
+      bindingRef.current = binding;
+
+      // Integrate QuillCursors with Awareness for collaborative cursors
+      const cursors = quill.getModule('cursors');
+      
+             // Listen to awareness changes and manually update cursors
+       const updateCursors = () => {
+         const states = awareness.getStates();
+         
+         states.forEach((state, clientId) => {
+           if (clientId !== awareness.clientID && state.user) {
+             const user = state.user;
+             const cursor = state.cursor;
+             
+             if (cursor && cursor.anchor && cursor.head) {
+               try {
+                 // Convert Yjs relative positions to absolute positions
+                 const anchorAbsolute = Y.createAbsolutePositionFromRelativePosition(cursor.anchor, ydoc);
+                 const headAbsolute = Y.createAbsolutePositionFromRelativePosition(cursor.head, ydoc);
+                 
+                 if (anchorAbsolute !== null && headAbsolute !== null) {
+                   const range = {
+                     index: Math.min(anchorAbsolute.index, headAbsolute.index),
+                     length: Math.abs(headAbsolute.index - anchorAbsolute.index)
+                   };
+                   
+                   // Create or update cursor
+                   cursors.createCursor(clientId.toString(), user.name, user.color);
+                   cursors.moveCursor(clientId.toString(), range);
+                 } else {
+                   // Remove cursor if position conversion failed
+                   cursors.removeCursor(clientId.toString());
+                 }
+               } catch (error) {
+                 console.debug('Error converting cursor position:', error);
+                 cursors.removeCursor(clientId.toString());
+               }
+             } else {
+               // Remove cursor if no position data
+               cursors.removeCursor(clientId.toString());
+             }
+           }
+         });
+        
+        // Remove cursors for disconnected clients
+        Object.keys(cursors.cursors || {}).forEach(clientId => {
+          const id = parseInt(clientId);
+          if (!states.has(id) || !states.get(id)?.user) {
+            cursors.removeCursor(clientId);
+          }
+        });
+      };
+      
+      // Listen to awareness changes
+      awareness.on('change', updateCursors);
+      
+      // Initial cursor update
+      updateCursors();
+
+      // (optional) Remove the selection when the iframe is blurred
+      window.addEventListener('blur', () => { quill.blur() })
+
+      // Set initial content if provided
+      if (defaultValueRef.current && ytext.length === 0) {
+        quill.setContents(defaultValueRef.current);
+      }
+
+      // Find username input in the parent component and set its value
+      const inputElement = document.querySelector('#username');
+      if (inputElement) {
+        inputElement.value = randomUsername;
+        
+        // Update awareness when username changes
+        const setUsername = () => {
+          awareness.setLocalStateField('user', { 
+            name: inputElement.value, 
+            color: myColor 
+          });
+        };
+        
+        inputElement.addEventListener('input', setUsername);
+      }
+
+      // Render a list of usernames next to the editor whenever new information is available from the awareness instance
       awareness.on('change', () => {
         // Map each awareness state to a dom-string
-        const strings = []
+        const strings = [];
         awareness.getStates().forEach(state => {
-          console.log(state)
+          console.log('Awareness state:', state);
           if (state.user) {
-            strings.push(`<div style="color:${state.user.color};">• ${state.user.name}</div>`)
+            strings.push(`<div style="color:${state.user.color};">• ${state.user.name}</div>`);
           }
-          document.querySelector('#users').innerHTML = strings.join('')
-        })
-      })
-
-      // Handle text changes
-      quill.on(Quill.events.TEXT_CHANGE, (...args) => {
-        onTextChangeRef.current?.(...args);
+        });
+        
+        const usersElement = document.querySelector('#users');
+        if (usersElement) {
+          usersElement.innerHTML = strings.join('');
+        }
       });
 
-      // Handle selection changes
-      quill.on(Quill.events.SELECTION_CHANGE, (...args) => {
-        onSelectionChangeRef.current?.(...args);
-      });
+      // // Handle text changes
+      // quill.on(Quill.events.TEXT_CHANGE, (...args) => {
+      //   onTextChangeRef.current?.(...args);
+      // });
+
+      // // Handle selection changes
+      // quill.on(Quill.events.SELECTION_CHANGE, (...args) => {
+      //   onSelectionChangeRef.current?.(...args);
+      // });
 
       // Cleanup function
       return () => {

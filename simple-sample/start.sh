@@ -46,7 +46,7 @@ if [ ! -f .env ]; then
 # Basic Configuration
 PORT=3001
 HOST=localhost
-REDIS_URL=redis://localhost:6379
+REDIS_URL=redis://localhost:6379/1
 
 # Storage Configuration (memory for development)
 STORAGE_TYPE=memory

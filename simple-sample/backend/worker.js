@@ -6,7 +6,7 @@ import { createStorage } from './src/storage/index.js'
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
 // Configuration
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
+const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379/1'
 const WORKER_ID = process.env.WORKER_ID || `worker-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 const PERSIST_INTERVAL = parseInt(process.env.PERSIST_INTERVAL) || 30000 // 30 seconds
 const BATCH_SIZE = parseInt(process.env.BATCH_SIZE) || 10 // Process 10 documents at a time
@@ -16,7 +16,7 @@ console.log(`🆔 Worker ID: ${WORKER_ID}`)
 console.log(`🔗 Redis: ${REDIS_URL}`)
 console.log(`⏱️  Persist Interval: ${PERSIST_INTERVAL}ms`)
 
-// Create Redis persistence and storage
+// Create Redis persistence and storage using database isolation
 const redisPersistence = new RedisPersistence({
   redisOpts: { url: REDIS_URL }
 })
@@ -31,41 +31,68 @@ let isRunning = true
 const knownRooms = new Set()
 
 /**
- * Simplified worker that demonstrates the concept
- * In a real y-redis implementation, this would be more sophisticated
+ * Discover active rooms from Redis by scanning for y-redis keys
+ */
+async function discoverRoomsFromRedis() {
+  try {
+    // Get Redis client from redisPersistence
+    const redis = redisPersistence.redis;
+    if (!redis) {
+      console.info('📡 Redis client not available for room discovery');
+      return [];
+    }
+
+    // Look for y-redis stream keys ending with :updates
+    // Keys will be at the database level like: room1:updates
+    const allKeys = await redis.keys('*:updates');
+    console.log('🔍 Found keys ending with :updates:', allKeys);
+    
+    // Extract room names from keys ending with :updates
+    const rooms = allKeys
+      .filter(key => key.endsWith(':updates'))
+      .map(key => key.replace(':updates', ''))
+      .filter(room => room && room !== '')
+      .filter((room, index, self) => self.indexOf(room) === index); // unique rooms
+
+    console.log('🔍 Extracted rooms:', rooms);
+    return rooms;
+  } catch (error) {
+    console.error('❌ Error discovering rooms from Redis:', error);
+    return [];
+  }
+}
+
+/**
+ * Worker loop that discovers and monitors active rooms
  */
 async function workerLoop() {
   while (isRunning) {
     try {
-      console.info('🔄 Worker heartbeat - ready to persist documents...')
+      console.info('🔄 Worker heartbeat - discovering active rooms...')
       
-      // For now, this is a simplified worker that just demonstrates
-      // the persistence concept. In a real implementation, you would:
-      //
-      // 1. Monitor Redis streams for documents that need persistence
-      // 2. Use y-redis APIs to get document states
-      // 3. Persist to your storage backend
-      // 4. Clean up old Redis data
-      //
-      // Since the exact y-redis API for getting all rooms isn't clear,
-      // we'll just log that the worker is running and ready.
+      // Discover rooms from Redis
+      const discoveredRooms = await discoverRoomsFromRedis();
+      
+      // Update known rooms
+      const previousCount = knownRooms.size;
+      knownRooms.clear();
+      discoveredRooms.forEach(room => knownRooms.add(room));
+      
+      if (knownRooms.size !== previousCount) {
+        console.info(`📋 Room discovery: ${knownRooms.size} active rooms found`);
+      }
       
       if (knownRooms.size > 0) {
-        console.info(`📋 Monitoring ${knownRooms.size} known rooms for persistence`)
+        console.info(`📋 Monitoring rooms: [${Array.from(knownRooms).join(', ')}]`);
         
-        // Here you would normally:
-        // - Check which documents need persistence
-        // - Load documents from Redis
-        // - Save to permanent storage
-        // - Clean up Redis cache
-        
+        // Persist each room's data
         for (const roomName of knownRooms) {
           if (!processingRooms.has(roomName)) {
-            console.info(`💤 Room ${roomName} up to date`)
+            await persistRoomData(roomName);
           }
         }
       } else {
-        console.info('💤 No active rooms to monitor')
+        console.info('💤 No active rooms to monitor');
       }
       
     } catch (error) {
@@ -74,6 +101,123 @@ async function workerLoop() {
     
     // Wait before next iteration
     await delay(PERSIST_INTERVAL)
+  }
+}
+
+/**
+ * Persist room data from Redis to storage
+ * @param {string} roomName 
+ */
+async function persistRoomData(roomName) {
+  if (processingRooms.has(roomName)) {
+    return // Already processing
+  }
+
+  processingRooms.add(roomName)
+  
+  try {
+    console.info(`💾 Persisting room data: ${roomName}`)
+    
+    let doc = null
+    let shouldCleanupDoc = false
+    
+    // Check if room is already bound to avoid "already bound" error
+    if (redisPersistence.docs.has(roomName)) {
+      console.info(`📄 Room ${roomName} already bound, using existing document`)
+      doc = redisPersistence.docs.get(roomName)
+      
+      if (!doc) {
+        console.info(`📄 Document ${roomName} not found in persistence, skipping`)
+        return
+      }
+    } else {
+      // Create a new document for loading state
+      doc = new Y.Doc()
+      shouldCleanupDoc = true
+      
+      try {
+        // Bind to Redis to load existing state
+        await redisPersistence.bindState(roomName, doc)
+        
+        // Wait longer for data to load and stabilize
+        await delay(1000)
+        
+        // Verify the document was properly loaded
+        if (!doc.store || !doc.store.clients) {
+          console.info(`📄 Document ${roomName} failed to load properly from Redis, skipping`)
+          doc.destroy()
+          return
+        }
+      } catch (bindError) {
+        console.error(`❌ Error binding document ${roomName}:`, bindError)
+        doc.destroy()
+        return
+      }
+    }
+    
+    // Debug the actual store structure
+    console.log(`🔍 Debugging document ${roomName} structure:`)
+    console.log(`  - doc.store exists:`, !!doc.store)
+    if (doc.store) {
+      console.log(`  - doc.store.clients exists:`, !!doc.store.clients)
+      console.log(`  - doc.store.clients type:`, typeof doc.store.clients)
+      console.log(`  - doc.store.structs exists:`, !!doc.store.structs)
+      if (doc.store.structs) {
+        console.log(`  - doc.store.structs keys:`, Object.keys(doc.store.structs))
+      }
+      console.log(`  - Available store properties:`, Object.keys(doc.store))
+    }
+    
+    // Simple validation - just check if store exists
+    if (!doc.store) {
+      console.info(`📄 Document ${roomName} has no store, skipping persistence`)
+      if (shouldCleanupDoc) doc.destroy()
+      return
+    }
+    
+    // Try to encode the document to see if it's valid
+    try {
+      const update = Y.encodeStateAsUpdateV2(doc)
+      if (!update || update.length === 0) {
+        console.info(`📄 Document ${roomName} produces empty update, skipping persistence`)
+        if (shouldCleanupDoc) doc.destroy()
+        return
+      }
+      console.log(`📄 Document ${roomName} encoded successfully (${update.length} bytes)`)
+    } catch (encodeError) {
+      console.error(`❌ Document ${roomName} cannot be encoded:`, encodeError.message)
+      if (shouldCleanupDoc) doc.destroy()
+      return
+    }
+
+    // Additional validation: try to get a state vector to ensure document is ready
+    try {
+      const stateVector = Y.encodeStateVector(doc)
+      if (!stateVector || stateVector.length === 0) {
+        console.info(`📄 Document ${roomName} has empty state vector, skipping persistence`)
+        if (shouldCleanupDoc) doc.destroy()
+        return
+      }
+    } catch (stateError) {
+      console.error(`❌ Error getting state vector for ${roomName}:`, stateError)
+      if (shouldCleanupDoc) doc.destroy()
+      return
+    }
+
+    // Persist to permanent storage (S3, Memory, etc.)
+    await storage.persistDoc(roomName, 'default', doc)
+    
+    console.info(`✅ Successfully persisted room: ${roomName}`)
+    
+    // Clean up the document only if we created it
+    if (shouldCleanupDoc) {
+      doc.destroy()
+    }
+    
+  } catch (error) {
+    console.error(`❌ Error persisting room ${roomName}:`, error)
+  } finally {
+    processingRooms.delete(roomName)
   }
 }
 
@@ -102,7 +246,11 @@ async function persistDocument(roomName, doc) {
     console.info(`📝 Persisting document: ${roomName}`)
     
     // Check if document has content worth persisting
-    if (doc.store.structs.clients.size === 0) {
+    // Safe way to check if document has content
+    const hasContent = doc.store && doc.store.structs && 
+                      Object.keys(doc.store.structs).length > 0
+    
+    if (!hasContent) {
       console.info(`📄 Document ${roomName} is empty, skipping persistence`)
       return
     }

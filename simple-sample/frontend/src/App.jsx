@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import Editor from './Editor';
 
 const App = () => {
@@ -14,6 +14,75 @@ const App = () => {
   const handleRoomChange = (e) => {
     setRoomName(e.target.value);
   };
+
+  const handleConnectionChange = (connected) => {
+    setIsConnected(connected);
+  };
+
+  // Add cursor styles
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      /* Cursor styles for collaborative editing - more specific and visible */
+      .ql-cursor-flag {
+        background-color: #000 !important;
+        border-radius: 3px !important;
+        color: white !important;
+        font-size: 12px !important;
+        font-weight: bold !important;
+        padding: 3px 6px !important;
+        position: absolute !important;
+        white-space: nowrap !important;
+        z-index: 10000 !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+        margin-top: -25px !important;
+        margin-left: -3px !important;
+      }
+      
+      .ql-cursor-caret {
+        background-color: #000 !important;
+        height: 100% !important;
+        position: absolute !important;
+        width: 2px !important;
+        z-index: 9999 !important;
+        pointer-events: none !important;
+      }
+      
+      .ql-cursor {
+        position: absolute !important;
+        z-index: 9999 !important;
+        pointer-events: none !important;
+      }
+      
+      .ql-cursor-selection {
+        background-color: rgba(0, 0, 255, 0.3) !important;
+        position: absolute !important;
+        pointer-events: none !important;
+        z-index: 9998 !important;
+      }
+
+      /* Ensure quill editor allows cursor positioning */
+      .ql-editor {
+        position: relative !important;
+      }
+      
+      /* User list styling */
+      #users {
+        margin-top: 10px;
+        font-size: 14px;
+      }
+      
+      #users div {
+        padding: 2px 0;
+        font-weight: 500;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
   return (
     <div className="app">
@@ -49,6 +118,7 @@ const App = () => {
           roomName={roomName}
           onSelectionChange={setRange}
           onTextChange={setLastChange}
+          onConnectionChange={handleConnectionChange}
         />
       </div>
 
