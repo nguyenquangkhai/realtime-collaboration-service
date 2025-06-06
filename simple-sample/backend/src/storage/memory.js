@@ -36,6 +36,7 @@ export class MemoryStorage {
      * @type {Map<string, Map<string, Map<string, Uint8Array>>>}
      */
     this.docs = new Map()
+    console.log(`🏗️  MemoryStorage initialized: prefix="${prefix}" (data will not persist between restarts)`)
   }
 
   /**
@@ -61,8 +62,11 @@ export class MemoryStorage {
    */
   async retrieveDoc (room, docname) {
     const prefixedRoom = `${this.prefix}:${room}`
+    console.log(`🔍 Memory Retrieve: Searching for room="${room}", docname="${docname}", prefixedRoom="${prefixedRoom}"`)
     const refs = this.docs.get(prefixedRoom)?.get(docname)
-    return promise.resolveWith((refs == null || refs.size === 0) ? null : { doc: Y.mergeUpdatesV2(array.from(refs.values())), references: array.from(refs.keys()) })
+    const hasData = refs != null && refs.size > 0
+    console.log(`🔍 Memory Result: ${hasData ? `Found ${refs.size} references` : 'No data found'} for room="${room}"`)
+    return promise.resolveWith(hasData ? { doc: Y.mergeUpdatesV2(array.from(refs.values())), references: array.from(refs.keys()) } : null)
   }
 
   /**

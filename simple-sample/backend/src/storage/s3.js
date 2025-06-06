@@ -18,11 +18,11 @@ const log = logging.createModuleLogger('@y/redis/s3')
  * @param {string} prefix - Storage prefix for app isolation
  */
 export const createS3Storage = (bucketName, prefix = 'default') => {
-  const endPoint = env.ensureConf('s3-endpoint')
-  const port = number.parseInt(env.ensureConf('s3-port'))
-  const useSSL = !['false', '0'].includes(env.getConf('s3-ssl') || 'false')
-  const accessKey = env.ensureConf('s3-access-key')
-  const secretKey = env.ensureConf('s3-secret-key')
+  const endPoint = env.ensureConf('S3_ENDPOINT')
+  const port = number.parseInt(env.ensureConf('S3_PORT'))
+  const useSSL = !['false', '0'].includes(env.getConf('S3_SSL') || 'false')
+  const accessKey = env.ensureConf('S3_ACCESS_KEY')
+  const secretKey = env.ensureConf('S3_SECRET_KEY')
   return new S3Storage(bucketName, prefix, {
     endPoint,
     port,
@@ -92,6 +92,7 @@ export class S3Storage {
       accessKey,
       secretKey
     })
+    console.log(`🏗️  S3Storage initialized: bucket="${bucketName}", prefix="${prefix}", endpoint="${endPoint}:${port}", ssl=${useSSL}`)
   }
 
   /**
@@ -111,16 +112,20 @@ export class S3Storage {
    * @return {Promise<{ doc: Uint8Array, references: Array<string> } | null>}
    */
   async retrieveDoc (room, docname) {
+    console.log(`🔍 S3 Retrieve: Searching for room="${room}", docname="${docname}", prefix="${this.prefix}" in bucket="${this.bucketName}"`)
     log('retrieving doc room=' + room + ' docname=' + docname + ' prefix=' + this.prefix)
     const objNames = await this.client.listObjectsV2(this.bucketName, encodeS3ObjectName(room, docname, this.prefix, ''), true).toArray()
     const references = objNames.map(obj => obj.name)
+    console.log(`🔍 S3 Found: ${references.length} objects for room="${room}", references=${JSON.stringify(references)}`)
     log('retrieved doc room=' + room + ' docname=' + docname + ' prefix=' + this.prefix + ' refs=' + JSON.stringify(references))
 
     if (references.length === 0) {
+      console.log(`🔍 S3 Empty: No objects found for room="${room}", docname="${docname}" in bucket="${this.bucketName}"`)
       return null
     }
     let updates = await promise.all(references.map(ref => this.client.getObject(this.bucketName, ref).then(readStream)))
     updates = updates.filter(update => update != null)
+    console.log(`🔍 S3 Success: Retrieved ${updates.length} updates, total size=${updates.reduce((sum, u) => sum + u.length, 0)} bytes`)
     log('retrieved doc room=' + room + ' docname=' + docname + ' prefix=' + this.prefix + ' updatesLen=' + updates.length)
     return { doc: Y.mergeUpdatesV2(updates), references }
   }

@@ -40,6 +40,15 @@ console.log(`🧹 Stream Cleanup Interval: ${STREAM_CLEANUP_INTERVAL}ms (${Math.
 console.log(`📏 Stream Max Length: ${STREAM_MAX_LENGTH} messages`)
 console.log(`⏰ Stream Max Age: ${STREAM_MAX_AGE}ms (${Math.round(STREAM_MAX_AGE / 3600000)}h)`)
 
+// Log storage configuration for worker
+const storageType = process.env.STORAGE_TYPE || 'memory'
+console.log(`💾 Worker Storage Type: ${storageType.toUpperCase()}`)
+if (storageType === 's3') {
+  const bucket = process.env.S3_BUCKET || 'not set'
+  const endpoint = process.env.S3_ENDPOINT || 'not set'
+  console.log(`🪣 Worker S3 Configuration: bucket="${bucket}", endpoint="${endpoint}"`)
+}
+
 // Create Redis persistence and storage using database isolation
 const redisPersistence = new RedisPersistence({
   redisOpts: { url: REDIS_URL }

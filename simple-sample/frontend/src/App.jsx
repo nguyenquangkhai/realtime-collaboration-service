@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import AppSelector from './components/AppSelector';
 import TextEditor from './apps/TextEditor/TextEditor';
 import NodeDiagram from './apps/NodeDiagram/NodeDiagram';
+import Table from './apps/Table/Table';
 
 const App = () => {
   const [currentApp, setCurrentApp] = useState(null);
@@ -58,6 +59,8 @@ const App = () => {
         return <TextEditor roomName={roomName} />;
       case 'nodes':
         return <NodeDiagram roomName={roomName} />;
+      case 'table':
+        return <Table roomName={roomName} />;
       default:
         return <AppSelector onSelectApp={handleSelectApp} initialRoomName={roomName} />;
     }

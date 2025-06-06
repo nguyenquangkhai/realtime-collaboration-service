@@ -19,12 +19,17 @@ import * as env from 'lib0/environment'
 export const createStorage = (prefix = 'default') => {
   const storageType = env.getConf('STORAGE_TYPE') || 'memory'
   
+  console.log(`📦 Creating storage for prefix '${prefix}': ${storageType.toUpperCase()}`)
+  
   switch (storageType) {
     case 's3':
       const bucketName = env.ensureConf('s3-bucket')
+      const endpoint = env.ensureConf('s3-endpoint')
+      console.log(`🪣 S3 Storage Config: bucket="${bucketName}", endpoint="${endpoint}", prefix="${prefix}"`)
       return createS3Storage(bucketName, prefix)
     case 'memory':
     default:
+      console.log(`💾 Memory Storage Config: prefix="${prefix}" (data will not persist)`)
       return createMemoryStorage(prefix)
   }
 }

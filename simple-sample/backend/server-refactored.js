@@ -15,6 +15,15 @@ console.log(`📡 Server: http://${HOST}:${PORT}`)
 console.log(`🔗 Base Redis: ${BASE_REDIS_URL}`)
 console.log(`🧹 Document cleanup interval: ${DOC_CLEANUP_INTERVAL}ms`)
 
+// Log storage configuration
+const storageType = process.env.STORAGE_TYPE || 'memory'
+console.log(`💾 Storage Type: ${storageType.toUpperCase()}`)
+if (storageType === 's3') {
+  const bucket = process.env.S3_BUCKET || 'not set'
+  const endpoint = process.env.S3_ENDPOINT || 'not set'
+  console.log(`🪣 S3 Configuration: bucket="${bucket}", endpoint="${endpoint}"`)
+}
+
 // Initialize app-specific instances
 const { redisPersistenceInstances, storageInstances } = initializeAppInstances(BASE_REDIS_URL)
 

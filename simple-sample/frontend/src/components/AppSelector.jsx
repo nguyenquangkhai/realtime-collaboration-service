@@ -17,6 +17,13 @@ const AppSelector = ({ onSelectApp, initialRoomName = '' }) => {
       description: 'Collaborative node diagrams with React Flow',
       icon: '🔗',
       features: ['Visual node editing', 'Real-time updates', 'Node connections', 'Collaborative drawing']
+    },
+    {
+      id: 'table',
+      name: 'Table Editor',
+      description: 'Collaborative spreadsheet editing with React Datasheet',
+      icon: '📋',
+      features: ['Spreadsheet interface', 'Cell editing', 'Copy/paste support', 'Faker.js sample data generation', 'Real-time collaboration']
     }
   ];
 
@@ -87,6 +94,8 @@ const AppSelector = ({ onSelectApp, initialRoomName = '' }) => {
             <span className="tech-tag">React</span>
             <span className="tech-tag">Quill</span>
             <span className="tech-tag">React Flow</span>
+            <span className="tech-tag">React Datasheet</span>
+            <span className="tech-tag">Faker.js</span>
           </div>
         </div>
       </div>

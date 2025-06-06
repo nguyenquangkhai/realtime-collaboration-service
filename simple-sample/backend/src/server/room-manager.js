@@ -38,11 +38,16 @@ export async function loadInitialDocumentState(docName, doc, appType, redisPersi
     try {
       const persistedData = await storage.retrieveDoc(docName, 'default')
       if (persistedData && persistedData.doc) {
-        console.log(`📦 Loaded ${persistedData.doc.length} bytes from persistent storage (${config.storagePrefix})`)
+        console.log(`📦 ✅ RESTORED: Loaded ${persistedData.doc.length} bytes from ${config.storagePrefix} storage for room: ${docName}`)
+        if (storage.bucketName) {
+          console.log(`🪣 S3 Source: bucket="${storage.bucketName}", prefix="${storage.prefix}"`)
+        }
         Y.applyUpdateV2(doc, persistedData.doc)
+      } else {
+        console.log(`📦 ❌ NO DATA: No persisted data found for room ${docName} in ${config.storagePrefix}`)
       }
     } catch (storageError) {
-      console.log(`📦 No persisted data found for room ${docName} in ${config.storagePrefix}:`, storageError.message)
+      console.log(`📦 ❌ ERROR: Failed to load persisted data for room ${docName} in ${config.storagePrefix}:`, storageError.message)
     }
     
     // Then, bind to Redis for real-time updates
