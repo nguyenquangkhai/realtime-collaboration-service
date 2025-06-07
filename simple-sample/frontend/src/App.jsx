@@ -3,9 +3,6 @@ import AppSelector from './components/AppSelector';
 import TextEditor from './apps/TextEditor/TextEditor';
 import NodeDiagram from './apps/NodeDiagram/NodeDiagram';
 import Table from './apps/Table/Table';
-import '@material/web/button/filled-tonal-button.js';
-import '@material/web/icon/icon.js';
-import './styles/material-theme.css';
 
 const App = () => {
   const [currentApp, setCurrentApp] = useState(null);
@@ -70,40 +67,20 @@ const App = () => {
   };
 
   return (
-    <div className="app">
+    <div className="min-h-screen bg-white">
       {currentApp && (
-        <div className="back-button-container">
-          <md-filled-tonal-button className="back-button" onClick={handleBackToHome}>
-            <md-icon slot="icon">arrow_back</md-icon>
+        <div className="fixed top-4 left-4 z-50">
+          <button 
+            onClick={handleBackToHome}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg shadow-lg hover:shadow-xl hover:bg-blue-700 transition-all duration-200 font-medium"
+          >
+            <span className="text-lg">←</span>
             Back to Home
-          </md-filled-tonal-button>
+          </button>
         </div>
       )}
       
       {renderCurrentApp()}
-
-      <style jsx>{`
-        .app {
-          min-height: 100vh;
-          background: #ffffff;
-        }
-
-        .back-button-container {
-          position: fixed;
-          top: 1rem;
-          left: 1rem;
-          z-index: 1000;
-        }
-
-        .back-button {
-          --md-filled-tonal-button-container-color: var(--md-sys-color-secondary-container);
-          --md-filled-tonal-button-label-text-color: var(--md-sys-color-on-secondary-container);
-          --md-filled-tonal-button-focus-label-text-color: var(--md-sys-color-on-secondary-container);
-          --md-filled-tonal-button-hover-label-text-color: var(--md-sys-color-on-secondary-container);
-          --md-filled-tonal-button-pressed-label-text-color: var(--md-sys-color-on-secondary-container);
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        }
-      `}</style>
     </div>
   );
 };

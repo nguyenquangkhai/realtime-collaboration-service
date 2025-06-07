@@ -1,12 +1,9 @@
-/* Import Material Design 3 Theme */
-@import '../../styles/material-theme.css';
+/* NodeDiagram specific styles that can't be handled by Tailwind */
 
 .node-diagram-app {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: var(--md-sys-color-background);
-  color: var(--md-sys-color-on-background);
 }
 
 /* Header styles moved to shared AppHeader component */
@@ -58,20 +55,20 @@
 
 /* React Flow Node Customization */
 .react-flow__node {
-  width: 160px !important; /* Make nodes smaller - default is usually ~200px */
-  min-height: 60px !important; /* Reduce minimum height */
-  font-size: 14px !important; /* Smaller font */
+  width: 160px !important;
+  min-height: 60px !important;
+  font-size: 14px !important;
 }
 
 .react-flow__node-default {
   width: 160px !important;
   min-height: 60px !important;
-  padding: 8px 12px !important; /* Reduce internal padding */
+  padding: 8px 12px !important;
   font-size: 14px !important;
 }
 
 .react-flow__node .react-flow__handle {
-  width: 8px !important; /* Smaller connection handles */
+  width: 8px !important;
   height: 8px !important;
 }
 
@@ -190,6 +187,19 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
+  .react-flow__node {
+    width: 140px !important;
+    min-height: 50px !important;
+    font-size: 12px !important;
+  }
+  
+  .react-flow__node-default {
+    width: 140px !important;
+    min-height: 50px !important;
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+  }
+
   .app-header {
     margin: 4rem 0.5rem 1rem 0.5rem;
     padding: 1.5rem;

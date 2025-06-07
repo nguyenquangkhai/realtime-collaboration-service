@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
-import './styles.scss'
+import './styles.css'
 
 // Import Quill CSS
 import 'quill/dist/quill.snow.css'

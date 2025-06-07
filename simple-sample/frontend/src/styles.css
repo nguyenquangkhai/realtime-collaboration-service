@@ -1,7 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
+@import "tailwindcss";
 /* Essential Quill cursor styles for collaboration - cannot be replaced with Tailwind */
 .ql-cursor {
   position: absolute;
@@ -33,4 +30,4 @@
 
 .ql-cursor-selections {
   background: rgba(0, 0, 0, 0.2);
-}
+} 
